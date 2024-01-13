@@ -1,0 +1,12 @@
+[submodule "polycg/cgNA_plus"]
+	path = polycg/cgNA_plus
+	url = git@github.com:eskoruppa/cgNA_plus
+[submodule "polycg/IOPolyMC"]
+	path = polycg/IOPolyMC
+	url = git@github.com:eskoruppa/IOPolyMC
+[submodule "polycg/SO3"]
+	path = polycg/SO3
+	url = git@github.com:eskoruppa/SO3
+[submodule "polycg/pyConDec"]
+	path = polycg/pyConDec
+	url = git@github.com:eskoruppa/pyConDec

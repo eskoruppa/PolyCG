@@ -16,3 +16,9 @@
 
 # ignore egg-info directory
 **.egg-info/
+
+# changes in subpackages
+**/cgNA_plus/
+**/SO3/
+**/IOPolyMC/
+**/pyConDec
