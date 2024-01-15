@@ -5,67 +5,6 @@ from scipy import sparse
 from typing import List, Tuple, Callable, Any, Dict
 
 
-def matrix_blockmarginal( 
-    matrix: np.ndarray, 
-    select_indices: np.ndarray,
-    block_dim: int = 1
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Extracts the marginal of matrix for the selected indices
-    """
-    select_indices[select_indices != 0] = 1
-    
-    if block_dim*select_indices != len(matrix):
-        raise ValueError(f'Size of matrix ({matrix.size}) is incompatible with length of select_indices ({len(select_indices)}) for specified block dimension ({block_dim}).')
-
-    perm_map = permuation_map(select_indices)
-    CB       = permutation_matrix(perm_map, block_dim=block_dim)
-    
-    Mro = np.matmul(CB, np.matmul(matrix, CB.T))
-    # select partial matrices
-    NA = block_dim * np.sum(select_indices)
-    NB = len(Mro) - NA
-    A = Mro[:NA, :NA]
-    D = Mro[NA:, NA:]
-    B = Mro[:NA, NA:]
-    C = Mro[NA:, :NA]
-    # calculate Schur complement
-    MA = A - np.dot(B, np.dot(np.linalg.inv(D), C))
-    return MA
-
-
-def permuation_map(select_indices: np.ndarray) -> np.ndarray:
-    """Permutation map. 
-
-    Args:
-        select_indices (np.ndarray): _description_
-
-    Returns:
-        np.ndarray: _description_
-    """
-    retain = list()
-    discard = list()
-    for i in len(select_indices):
-        if select_indices[i] == 1:
-            retain.append(i)
-        else:
-            discard.append(i)
-    return np.ndarray(retain+discard)
-    
-def permutation_matrix(perm_map: np.ndarray, block_dim: int = 1) -> np.ndarray:
-    
-    N = len(perm_map)*block_dim
-    # init matrix of basis change
-    CB = np.zeros((N,N))
-    eye = np.eye(block_dim)    
-    for i, j in enumerate(perm_map):
-        CB[block_dim * i : block_dim * (i + 1), block_dim * j : block_dim * (j + 1)] = eye
-    return CB
-
-
-
-
-
 def var_assign(seq: str, dof_names=["W", "x", "C", "y"]) -> List[str]:
     """
     Generates the sequence of contained degrees of freedom for the specified sequence.
