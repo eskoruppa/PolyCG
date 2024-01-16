@@ -83,6 +83,12 @@ if __name__ == "__main__":
     
     
     print('\n#############################')
-    rotstiff = matrix_rotmarginal(stiff,6,[0,1,2])
+    rotstiff = matrix_rotmarginal(stiff)
     for i in range(len(rotstiff)//3):
         print(rotstiff[i*3:(i+1)*3,i*3:(i+1)*3]*0.34)
+        
+    retained_ids = [0,1,2,6,7,8,12,13,14,18,19,20,24,25,26]
+    stiff2 = marginal_schur_complement(stiff,retained_ids)
+    
+    for i in range(len(rotstiff)//3):
+        print(stiff2[i*3:(i+1)*3,i*3:(i+1)*3]*0.34)

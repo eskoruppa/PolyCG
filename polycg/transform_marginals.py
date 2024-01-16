@@ -3,6 +3,7 @@ import scipy as sp
 from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix
 from scipy import sparse
 from typing import List, Tuple, Callable, Any, Dict, Optional
+from .SO3 import so3
 
 
 def matrix_marginal(
@@ -237,4 +238,79 @@ def vector_transmarginal(
         return vector_blockmarginal(vector,block_size=6,block_index_list=[3,4,5])
     else:
         return vector_blockmarginal(vector,block_size=6,block_index_list=[0,1,2])
-        
+    
+    
+
+##########################################################################################################
+############### Schur Complement and Permutation matrices ################################################
+##########################################################################################################
+
+
+def marginal_schur_complement(mat: np.ndarray, retained_ids: List[int]) -> np.ndarray:
+    """Schur complement of matrix to retain the specified degrees of freedom
+
+    Args:
+        mat (np.ndarray): Given matrix
+        retained_ids (List[int]): List of dof that are to be retained
+
+    Returns:
+        np.ndarray: reduced matrix
+    """
+    # calculate permutation matrix
+    P = send_to_back_permutation(len(mat), retained_ids)
+    # rearrange matrix
+    pmat = so3.dots([P, mat, P.T])
+    # select partial matrix
+    ND = len(retained_ids)
+    NA = len(mat) - ND
+    A = pmat[
+        :NA,
+        :NA,
+    ]
+    B = pmat[:NA, NA:]
+    D = pmat[NA:, NA:]
+    # calculate schur complement
+    schur = D - so3.dots([B.T, np.linalg.inv(A), B])
+    return schur
+
+
+def permutation_matrix_by_indices(order: List[int]) -> np.ndarray:
+    """
+    Generates permutation matrix that rearranges elements according to the order specified in idlist
+    """
+    # check if all entries are contained
+    missing = list()
+    for i in range(np.max(order) + 1):
+        if i not in order:
+            missing.append(i)
+    if len(missing) > 0:
+        raise ValueError(
+            f"Not all indices contained in order list: Missing indices: {missing}"
+        )
+
+    P = np.zeros((len(order),) * 2)
+    for new, old in enumerate(order):
+        P[new, old] = 1
+    return P
+
+
+def send_to_back_permutation(
+    N: int, move_back_ids: List[int], ordered: bool = False
+) -> np.ndarray:
+    """Matrix that rearranges the terms to move the specified elements to the back
+
+    Args:
+        N (int): number of degrees of freedom
+        move_back_ids (List[int]): List of dof that are to be moved to the back
+        ordered (bool): Switch to preserve the natural order of the elements given in move_back_ids.
+                        If set to True, the list is ordered. (Defaults to False)
+
+    Returns:
+        np.ndarray: transformation matrix ((dim: NxN))
+    """
+    T = np.zeros((N,) * 2)
+    if ordered:
+        move_back_ids = sorted(move_back_ids)
+    leading = [i for i in range(N) if i not in move_back_ids]
+    order = leading + move_back_ids
+    return permutation_matrix_by_indices(order)

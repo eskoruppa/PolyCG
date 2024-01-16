@@ -10,7 +10,7 @@ from .pyConDec.pycondec import cond_jit
 ##########################################################################################################
 
 
-def eulers2rotmats(eulers: np.ndarray) -> np.ndarray:
+def eulers2rotmats_se3(eulers: np.ndarray) -> np.ndarray:
     """Converts configuration of euler vectors into collection of rotation matrices
 
     Args:
@@ -19,8 +19,8 @@ def eulers2rotmats(eulers: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: collection of rotation matrices (...,N,3,3)
     """
-    if eulers.shape[-1] != 3:
-        raise ValueError(f"Expected set of 3-vectors. Instead received shape {eulers.shape}")
+    if eulers.shape[-1] != 6:
+        raise ValueError(f"Expected set of 6-vectors. Instead received shape {eulers.shape}")
     rotmats = np.zeros(eulers.shape + (3,))
     if len(eulers.shape) > 2:
         for i in range(len(eulers)):

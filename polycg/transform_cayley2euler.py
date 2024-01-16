@@ -1,7 +1,7 @@
 import numpy as np
 from typing import List, Tuple, Callable, Any, Dict
 from .SO3 import so3
-from .transform_state import statevec2vecs
+from .transform_statevec import statevec2vecs
 
 ##########################################################################################################
 ##########################################################################################################
