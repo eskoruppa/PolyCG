@@ -228,7 +228,7 @@ def rotmats2cayleys(rotmats: np.ndarray) -> np.ndarray:
 ##########################################################################################################
 
 
-def vecs2rotmats(vecs: np.ndarray, rotation_map="euler") -> np.ndarray:
+def vecs2rotmats(vecs: np.ndarray, rotation_map: str = "euler") -> np.ndarray:
     """Converts configuration of vectors into collection of rotation matrices
 
     Args:
@@ -248,7 +248,7 @@ def vecs2rotmats(vecs: np.ndarray, rotation_map="euler") -> np.ndarray:
         raise ValueError(f'Unknown rotation_map "{rotation_map}"')
 
 
-def rotmats2vecs(rotmats: np.ndarray, rotation_map="euler") -> np.ndarray:
+def rotmats2vecs(rotmats: np.ndarray, rotation_map: str = "euler") -> np.ndarray:
     """Converts collection of rotation matrices into collection of vectors
 
     Args:

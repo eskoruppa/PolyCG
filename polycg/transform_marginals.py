@@ -192,6 +192,9 @@ def vector_blockmarginal(
     block_index_list: np.ndarray | List[int]
     ) -> np.ndarray:
     
+    print(vector.shape)
+    
+    
     if vector.shape[0]%block_size != 0:
         raise ValueError(f'Matrix size is not a multiple of the specified block size.')
     

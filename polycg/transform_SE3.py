@@ -10,7 +10,7 @@ from .pyConDec.pycondec import cond_jit
 ##########################################################################################################
 
 
-def eulers2rotmats_se3(eulers: np.ndarray) -> np.ndarray:
+def se3_eulers2rotmats(eulers: np.ndarray, rotation_first: bool = True) -> np.ndarray:
     """Converts configuration of euler vectors into collection of rotation matrices
 
     Args:
@@ -19,19 +19,20 @@ def eulers2rotmats_se3(eulers: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: collection of rotation matrices (...,N,3,3)
     """
-    if eulers.shape[-1] != 6:
-        raise ValueError(f"Expected set of 6-vectors. Instead received shape {eulers.shape}")
-    rotmats = np.zeros(eulers.shape + (3,))
+    # if eulers.shape[-1] != 6:
+    #     raise ValueError(f"Expected set of 6-vectors. Instead received shape {eulers.shape}")
+    
+    rotmats = np.zeros(tuple(list(eulers.shape)[:-1]) + (4,4))
     if len(eulers.shape) > 2:
         for i in range(len(eulers)):
-            rotmats[i] = eulers2rotmats(eulers[i])
+            rotmats[i] = se3_eulers2rotmats(eulers[i],rotation_first=rotation_first)
         return rotmats
     for i, euler in enumerate(eulers):
-        rotmats[i] = so3.euler2rotmat(euler)
+        rotmats[i] = so3.se3_euler2rotmat(euler, rotation_first=rotation_first)
     return rotmats
 
 
-def rotmats2eulers(rotmats: np.ndarray) -> np.ndarray:
+def se3_rotmats2eulers(rotmats: np.ndarray, rotation_first: bool = True) -> np.ndarray:
     """Converts collection of rotation matrices into collection of euler vectors
 
     Args:
@@ -40,142 +41,14 @@ def rotmats2eulers(rotmats: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: Collection of euler vectrs (...,N,3)
     """
-    eulers = np.zeros(rotmats.shape[:-1])
+    eulers = np.zeros(tuple(list(rotmats.shape)[:-2])+(6,))
     if len(rotmats.shape) > 3:
         for i in range(len(rotmats)):
-            eulers[i] = rotmats2eulers(rotmats[i])
+            eulers[i] = se3_rotmats2eulers(rotmats[i],rotation_first=rotation_first)
         return eulers
     for i, rotmat in enumerate(rotmats):
-        eulers[i] = so3.rotmat2euler(rotmat)
+        eulers[i] = so3.se3_rotmat2euler(rotmat,rotation_first=rotation_first)
     return eulers
-
-
-# def fluctrotmats2rotmats_euler(eulers_gs: np.ndarray, drotmats: np.ndarray, static_left=True):
-#     """Converts collection of fluctuating component rotation matrices into collection of full rotation matrices (including static components)
-
-#     Converts groundstate into set of static rotation matrices {S}. Then generates rotation matrices as
-#     R = S*D
-#     (for static_left = True, with D the indicidual fluctuating component rotation matrices)
-
-#     Args:
-#         eulers_gs (np.ndarray): Groundstate euler vectors (dim: N,3)
-#         drotmats (np.ndarray): Collection of fluctuating component rotation matrices (dim: ...,N,3,3)
-#         static_left (bool): Specifies whether static component of the rotation matrix is defined to be on the left or right.
-#                             Defaults to True (left definition).
-
-#     Returns:
-#         np.ndarray: collection of rotation matrices (...,N,3,3)
-#     """
-
-#     def _dynamicrotmats2rotmats(
-#         eulers_gs_rotmat: np.ndarray, drotmats: np.ndarray
-#     ) -> np.ndarray:
-#         rotmats = np.zeros(drotmats.shape)
-#         if len(drotmats.shape) > 3:
-#             for i in range(len(drotmats)):
-#                 rotmats[i] = _dynamicrotmats2rotmats(eulers_gs_rotmat, drotmats[i])
-#             return rotmats
-
-#         if static_left:
-#             # left multiplication of static rotation matrix
-#             for i, drotmat in enumerate(drotmats):
-#                 rotmats[i] = np.matmul(eulers_gs_rotmat[i], drotmat)
-#         else:
-#             # right multiplication of static rotation matrix
-#             for i, drotmat in enumerate(drotmats):
-#                 rotmats[i] = np.matmul(drotmat, eulers_gs_rotmat[i])
-#         return rotmats
-
-#     eulers_gs_rotmat = eulers2rotmats(eulers_gs)
-#     return _dynamicrotmats2rotmats(eulers_gs_rotmat, drotmats)
-
-
-# def rotmats2fluctrotmats_euler(eulers_gs: np.ndarray, rotmats: np.ndarray, static_left=True):
-#     """Extracts dynamic component rotation matrices from collection of full rotation matrices (including static components)
-
-#     Args:
-#         eulers_gs (np.ndarray): Groundstate euler vectors (dim: N,3)
-#         rotmats (np.ndarray): Collection of rotation matrices (dim: ...,N,3,3)
-#         static_left (bool): Specifies whether static component of the rotation matrix is defined to be on the left or right.
-#                             Defaults to True (left definition).
-
-#     Returns:
-#         np.ndarray: collection of dynamic component rotation matrices (...,N,3,3)
-#     """
-
-#     def _rotmats2fluctrotmats(
-#         eulers_gs_rotmat: np.ndarray, rotmats: np.ndarray
-#     ) -> np.ndarray:
-#         drotmats = np.zeros(rotmats.shape)
-#         if len(rotmats.shape) > 3:
-#             for i in range(len(rotmats)):
-#                 rotmats[i] = _rotmats2fluctrotmats(eulers_gs_rotmat, rotmats[i])
-#             return rotmats
-
-#         if static_left:
-#             # left multiplication of static rotation matrix
-#             for i, rotmat in enumerate(rotmats):
-#                 drotmats[i] = np.matmul(eulers_gs_rotmat[i].T, rotmat)
-#         else:
-#             # right multiplication of static rotation matrix
-#             for i, rotmat in enumerate(rotmats):
-#                 drotmats[i] = np.matmul(rotmat, eulers_gs_rotmat[i].T)
-#         return drotmats
-
-#     eulers_gs_rotmat = eulers2rotmats(eulers_gs)
-#     return _rotmats2fluctrotmats(eulers_gs_rotmat, rotmats)
-
-
-# def eulers2rotmats_SO3fluct(
-#     eulers_gs: np.ndarray, eulers_fluct: np.ndarray, static_left=True
-# ) -> np.ndarray:
-#     """Converts configuration of euler vectors into collection of rotation matrices
-
-#     Args:
-#         eulers_gs (np.ndarray): Groundstate euler vectors (N,3)
-#         eulers_fluct (np.ndarray): Collection of fluctuating component euler vectors (...,N,3)
-#         static_left (bool): Specifies whether static component of the rotation matrix is defined to be on the left or right.
-#                             Defaults to True (left definition).
-
-#     Returns:
-#         np.ndarray: collection of rotation matrices (...,N,3,3)
-#     """
-
-#     def _eulers2rotmats_SO3fluct(
-#         eulers_gs_rotmat: np.ndarray, eulers_fluct: np.ndarray
-#     ) -> np.ndarray:
-#         rotmats = np.zeros(eulers_fluct.shape + (3,))
-#         if len(eulers_fluct.shape) > 2:
-#             for i in range(len(eulers_fluct)):
-#                 rotmats[i] = _eulers2rotmats_SO3fluct(eulers_gs_rotmat, eulers_fluct[i])
-#             return rotmats
-
-#         if static_left:
-#             # left multiplication of static rotation matrix
-#             for i, euler in enumerate(eulers_fluct):
-#                 rotmats[i] = np.matmul(eulers_gs_rotmat[i], so3.euler2rotmat(euler))
-#         else:
-#             # right multiplication of static rotation matrix
-#             for i, euler in enumerate(eulers_fluct):
-#                 rotmats[i] = np.matmul(so3.euler2rotmat(euler), eulers_gs_rotmat[i])
-#         return rotmats
-
-#     eulers_gs_rotmat = eulers2rotmats(eulers_gs)
-#     return _eulers2rotmats_SO3fluct(eulers_gs_rotmat, eulers_fluct)
-
-
-# # def rotmats2eulers_SO3fluct(eulers_gs: np.ndarray, rotmats: np.ndarray) -> np.ndarray:
-# #     """Converts configuration of rotation matrices into collection of fluctuating components of rotation matrices
-
-# #     Args:
-# #         eulers_gs (np.ndarray): Groundstate euler vectors (dim: (N,3))
-# #         rotmats (np.ndarray): collection of rotation matrices (dim: (...,N,3,3))
-# #         static_left (bool): Specifies whether static component of the rotation matrix is defined to be on the left or right.
-# #                             Defaults to True (left definition).
-
-# #     Returns:
-# #         np.ndarray: collection of fluctuating components of  (dim: (...,N,3,3))
-# #     """
 
 
 ##########################################################################################################
@@ -183,7 +56,7 @@ def rotmats2eulers(rotmats: np.ndarray) -> np.ndarray:
 ##########################################################################################################
 
 
-def cayleys2rotmats(cayleys: np.ndarray) -> np.ndarray:
+def se3_cayleys2rotmats(cayleys: np.ndarray, rotation_first: bool = True) -> np.ndarray:
     """Converts configuration of euler vectors into collection of rotation matrices
 
     Args:
@@ -192,20 +65,20 @@ def cayleys2rotmats(cayleys: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: collection of rotation matrices (...,N,3,3)
     """
-    if cayleys.shape[-1] != 3:
-        raise ValueError(f"Expected set of 3-vectors. Instead received shape {cayleys.shape}")
+    # if cayleys.shape[-1] != 3:
+    #     raise ValueError(f"Expected set of 3-vectors. Instead received shape {cayleys.shape}")
     
-    rotmats = np.zeros(cayleys.shape + (3,))
+    rotmats = np.zeros(tuple(list(cayleys.shape)[:-1]) + (4,4))
     if len(cayleys.shape) > 2:
         for i in range(len(cayleys)):
-            rotmats[i] = cayleys2rotmats(cayleys[i])
+            rotmats[i] = se3_cayleys2rotmats(cayleys[i],rotation_first=rotation_first)
         return rotmats
     for i, cayley in enumerate(cayleys):
-        rotmats[i] = so3.cayley2rotmat(cayley)
+        rotmats[i] = so3.se3_cayley2rotmat(cayley,rotation_first=rotation_first)
     return rotmats
 
 
-def rotmats2cayleys(rotmats: np.ndarray) -> np.ndarray:
+def se3_rotmats2cayleys(rotmats: np.ndarray, rotation_first: bool = True) -> np.ndarray:
     """Converts collection of rotation matrices into collection of euler vectors
 
     Args:
@@ -214,13 +87,13 @@ def rotmats2cayleys(rotmats: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: Collection of euler vectors (...,N,3)
     """
-    cayleys = np.zeros(rotmats.shape[:-1])
+    cayleys = np.zeros(tuple(list(rotmats.shape)[:-2])+(6,))
     if len(rotmats.shape) > 3:
         for i in range(len(rotmats)):
-            cayleys[i] = rotmats2cayleys(rotmats[i])
+            cayleys[i] = se3_rotmats2cayleys(rotmats[i],rotation_first=rotation_first)
         return cayleys
     for i, rotmat in enumerate(rotmats):
-        cayleys[i] = so3.rotmat2cayley(rotmat)
+        cayleys[i] = so3.se3_rotmat2cayley(rotmat,rotation_first=rotation_first)
     return cayleys
 
 ##########################################################################################################
@@ -228,7 +101,7 @@ def rotmats2cayleys(rotmats: np.ndarray) -> np.ndarray:
 ##########################################################################################################
 
 
-def vecs2rotmats(vecs: np.ndarray, rotation_map="euler") -> np.ndarray:
+def se3_vecs2rotmats(vecs: np.ndarray, rotation_map: str = "euler", rotation_first: bool = True) -> np.ndarray:
     """Converts configuration of vectors into collection of rotation matrices
 
     Args:
@@ -241,14 +114,14 @@ def vecs2rotmats(vecs: np.ndarray, rotation_map="euler") -> np.ndarray:
         np.ndarray: collection of rotation matrices (...,N,3,3)
     """
     if rotation_map == "euler":
-        return eulers2rotmats(vecs)
+        return se3_eulers2rotmats(vecs,rotation_first=rotation_first)
     elif rotation_map == "cayley":
-        return cayleys2rotmats(vecs)
+        return se3_cayleys2rotmats(vecs,rotation_first=rotation_first)
     else:
         raise ValueError(f'Unknown rotation_map "{rotation_map}"')
 
 
-def rotmats2vecs(rotmats: np.ndarray, rotation_map="euler") -> np.ndarray:
+def se3_rotmats2vecs(rotmats: np.ndarray, rotation_map: str = "euler", rotation_first: bool = True) -> np.ndarray:
     """Converts collection of rotation matrices into collection of vectors
 
     Args:
@@ -261,9 +134,9 @@ def rotmats2vecs(rotmats: np.ndarray, rotation_map="euler") -> np.ndarray:
         np.ndarray: Collection of vectors (...,N,3)
     """
     if rotation_map == "euler":
-        return rotmats2eulers(rotmats)
+        return se3_rotmats2eulers(rotmats,rotation_first=rotation_first)
     elif rotation_map == "cayley":
-        return rotmats2cayleys(rotmats)
+        return se3_rotmats2cayleys(rotmats,rotation_first=rotation_first)
     else:
         raise ValueError(f'Unknown rotation_map "{rotation_map}"')
 
@@ -273,11 +146,11 @@ def rotmats2vecs(rotmats: np.ndarray, rotation_map="euler") -> np.ndarray:
 ##########################################################################################################
 
 
-def rotmats2triads(rotmats: np.ndarray, first_triad=None) -> np.ndarray:
-    """Converts collection of rotation matrices into collection of triads
+def se3_rotmats2triads(rotmats: np.ndarray, first_triad=None, midstep_trans: bool = False) -> np.ndarray:
+    """Converts collection of se3 matrices into collection of se3-triads
 
     Args:
-        rotmats (np.ndarray): set of rotation matrices that constitute the local junctions in the chain of triads. (...,N,3,3)
+        rotmats (np.ndarray): set of rotation matrices that constitute the local junctions in the chain of triads. (...,N,4,4)
         first_triad (None or np.ndarray): rotation of first triad. Should be none or single triad. For now only supports identical rotation for all snapshots.
 
     Returns:
@@ -288,23 +161,28 @@ def rotmats2triads(rotmats: np.ndarray, first_triad=None) -> np.ndarray:
     triads = np.zeros(tuple(sh))
     if len(rotmats.shape) > 3:
         for i in range(len(rotmats)):
-            triads[i] = rotmats2triads(rotmats[i])
+            triads[i] = se3_rotmats2triads(rotmats[i])
         return triads
 
     if first_triad is None:
-        first_triad = np.eye(3)
+        first_triad = np.eye(4)
     assert first_triad.shape == (
-        3,
-        3,
-    ), f"invalid shape of triad {first_triad.shape}. Triad shape needs to be (3,3)."
+        4,
+        4,
+    ), f"invalid shape of triad {first_triad.shape}. Triad shape needs to be (4,4)."
 
     triads[0] = first_triad
-    for i, rotmat in enumerate(rotmats):
-        triads[i + 1] = np.matmul(triads[i], rotmat)
+    
+    if not midstep_trans:
+        for i, rotmat in enumerate(rotmats):
+            triads[i + 1] = np.matmul(triads[i], rotmat)
+    else:
+        for i, rotmat in enumerate(rotmats):
+            triads[i + 1] = so3.se3_triadxrotmat_midsteptrans(triads[i], rotmat)
     return triads
 
 
-def triads2rotmats(triads: np.ndarray) -> np.ndarray:
+def se3_triads2rotmats(triads: np.ndarray, midstep_trans: bool = False) -> np.ndarray:
     """Converts set of triads into set of rotation matrices
 
     Args:
@@ -318,15 +196,45 @@ def triads2rotmats(triads: np.ndarray) -> np.ndarray:
     rotmats = np.zeros(tuple(sh))
     if len(triads.shape) > 3:
         for i in range(len(triads)):
-            rotmats[i] = triads2rotmats(triads[i])
+            rotmats[i] = se3_triads2rotmats(triads[i])
         return rotmats
 
-    for i in range(len(triads) - 1):
-        rotmats[i] = np.matmul(triads[i].T, triads[i + 1])
+    if not midstep_trans:
+        for i in range(len(triads) - 1):
+            rotmats[i] = so3.se3_inverse(triads[i]) @ triads[i + 1]
+    else:
+        for i in range(len(triads) - 1):
+            rotmats[i] = so3.se3_triads2rotmat_midsteptrans(triads[i], triads[i + 1])
     return rotmats
 
 
+##########################################################################################################
+######### Conversion of rotation matrices between midstep and normal definition of translations ##########
+##########################################################################################################
 
+def se3_transformations_midstep2triad(gs: np.ndarray) -> np.ndarray:
+    midgs = np.zeros(gs.shape)
+    if len(gs.shape) > 3:
+        for i in range(len(gs)):
+            midgs[i] = se3_transformations_midstep2triad(gs[i])
+        return midgs
+
+    for i, g in enumerate(gs):
+        midgs[i] = so3.se3_transformation_midsteptrans2normal(g)
+    return midgs  
+
+def se3_transformations_triad2midstep(midgs: np.ndarray) -> np.ndarray:
+    gs = np.zeros(midgs.shape)
+    if len(midgs.shape) > 3:
+        for i in range(len(midgs)):
+            gs[i] = se3_transformations_triad2midstep(midgs[i])
+        return gs
+
+    for i, midg in enumerate(midgs):
+        gs[i] = so3.se3_transformation_normal2midsteptrans(midg)
+    return gs  
+
+    
 ##########################################################################################################
 ############### Generate positions from triads ###########################################################
 ##########################################################################################################

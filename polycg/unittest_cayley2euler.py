@@ -5,75 +5,148 @@ import scipy as sp
 import sys
 
 from typing import List, Tuple, Callable, Any, Dict
-from .cgNA_plus.modules.cgDNAUtils import constructSeqParms
+from .cgnaplus import cgnaplus_bps_params
 
-from .transform_marginals import vector_marginal, matrix_marginal, unwrap_wildtypes, matrix_marginal_assignment, vector_marginal_assignment
-from .transform_units import conversion
-from .transform_statevec import statevec2vecs, vecs2statevec
+from .transform_cayley2euler import *
+from .transform_marginals import *
+from .transform_statevec import *
+from numba import njit
 
-CURVES_PLUS_DATASET_NAME = "cgDNA+_Curves_BSTJ_10mus_FS"
-
-def cgnaplus_bps_params(
-    sequence: str, 
-    remove_factor_five: bool = True, 
-    parameter_set_name: str = 'curves_plus',
-    separate_vectors: bool = True
-    ) -> Tuple[np.ndarray,np.ndarray]:
+def test_order_of_rotation_marginals(seq: str = 'ACGATC',num_confs = 100000):
+    np.set_printoptions(linewidth=250)
     
-    if parameter_set_name == 'curves_plus':
-        parameter_set_name = CURVES_PLUS_DATASET_NAME
+    # generate stiffness
+    cayley_gs,cayley_stiff = cgnaplus_bps_params(seq)
     
-    gs,stiff = constructSeqParms(sequence,parameter_set_name)
-    names = cgnaplus_name_assign(sequence)
-    select_names = ["y*"]
-    stiff = matrix_marginal_assignment(stiff,select_names,names,block_dim=6)
-    gs    = vector_marginal_assignment(gs,select_names,names,block_dim=6)
-    stiff = stiff.toarray()
-    if remove_factor_five:
-        factor = 5
-        gs   = conversion(gs,1./factor,block_dim=6,dofs=[0,1,2])
-        stiff = conversion(stiff,factor,block_dim=6,dofs=[0,1,2])
+    # rotational marginals
+    cayley_rot_gs    = cayley_gs[:,:3]
+    cayley_rot_stiff = matrix_rotmarginal(cayley_stiff)
     
-    if separate_vectors:
-        gs = statevec2vecs(gs,vdim=6)  
-    return gs, stiff
+    # full covariance
+    cayley_cov     = np.linalg.inv(cayley_stiff)
+    
+    # rotational covariance
+    cayley_rot_cov = np.linalg.inv(cayley_rot_stiff)
+    
+    # check consistency of rotational components
+    if np.abs(np.sum(cayley_cov[:3,:3]-cayley_rot_cov[:3,:3])) > 1e-10:
+        print(f'Rotational covariance inconsistent')
+    else:
+        print('Rotational covariance marginals checks out')
+    
+    # sample configs
+    cayleys_dx = np.random.multivariate_normal(np.zeros(len(cayley_cov)), cayley_cov, num_confs)
+    cayleys_rot_dx = np.random.multivariate_normal(np.zeros(len(cayley_rot_cov)), cayley_rot_cov, num_confs)
+    
+    cayleys_dx     = statevec2vecs(cayleys_dx,vdim=6)
+    cayleys_rot_dx = statevec2vecs(cayleys_rot_dx,vdim=3)
+    
+    cayleys     = cayley_gs     + cayleys_dx
+    cayleys_rot = cayley_rot_gs + cayleys_rot_dx
+    
+    print(cayleys.shape)
+    print(cayleys_rot.shape)
+    
+    cov    = covmat(cayleys_dx)
+    covrot = covmat(cayleys_rot_dx)
+    
+    print((cov[:3,:3]-covrot[:3,:3])/covrot[:3,:3])
+    
+    # transform to euler
+    eulers     = cayleys2eulers(cayleys)
+    eulers_rot = cayleys2eulers(cayleys_rot)
+    eulers_gs  = cayleys2eulers(cayley_gs)
+    eulers_rot_gs = cayleys2eulers(cayley_rot_gs)
+    eulers_dx     = eulers - eulers_gs
+    eulers_rot_dx = eulers_rot - eulers_rot_gs
+    
+    # test transformation
+    if np.abs(np.sum(eulers[:,:,:3]-cayleys2eulers(cayleys[:,:,:3]))) > 1e-10:
+        print('Caylay2euler inconsistent with and without translations')
+    else:
+        print('Caylay2euler consistency checks out')
+        
+    eulers_cov     = covmat(eulers_dx)
+    eulers_rot_cov = covmat(eulers_rot_dx)
+    
+    eulers_stiff     = np.linalg.inv(eulers_cov)
+    eulers_rot_stiff = np.linalg.inv(eulers_rot_cov)
+    
+    print('#####################################')
+    # print('Sampled Euler stiffness with translations')
+    # print(eulers_stiff[:6,:6])
+    print('Sampled Euler stiffness marginalied after transformation')
+    print(matrix_rotmarginal(eulers_stiff)[:3,:3])
+    print('Sampled Euler stiffness marginalied before transformation')
+    print(eulers_rot_stiff[:3,:3])
+    
+    
+    euler_stiff_lintrans = cayley2euler_stiffmat(cayley_gs,cayley_stiff)
+    euler_rot_stiff_lintrans = cayley2euler_stiffmat(cayley_rot_gs,cayley_rot_stiff)
+    
+    # print('Transformed Euler stiffness with translations')
+    # print(euler_stiff_lintrans[:6,:6])
+    print('Transformed Euler stiffness with translations')
+    print(matrix_rotmarginal(euler_stiff_lintrans)[:3,:3])
+    print('Transformed Euler stiffness marginalied before transformation')
+    print(euler_rot_stiff_lintrans[:3,:3])
+    
+    print('#####################################')
+    print(cayley_stiff[:3,:3])
+    print(euler2cayley_stiffmat(eulers_gs,euler_stiff_lintrans)[:3,:3])
+    print('#####################################')
+    print(cayley_rot_stiff[:3,:3])
+    print(euler2cayley_stiffmat(eulers_rot_gs,euler_rot_stiff_lintrans)[:3,:3])
+    
+    
+    Hec = so3.euler2cayley_linearexpansion(eulers_rot_gs[0])
+    Hce = so3.cayley2euler_linearexpansion(cayley_rot_gs[0])
+    
+    print(Hec @ Hce)
+    print(Hce @ Hec)
+    
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+@njit
+def covmat(vecs):
+    dim = vecs.shape[-1]*vecs.shape[-2]
+    cov = np.zeros((dim,dim))
+    for i in range(len(vecs)):
+        cov += np.outer(vecs[i],vecs[i])
+    cov /= len(vecs)
+    return cov
+    
 
 
-def cgnaplus_name_assign(seq: str, dof_names=["W", "x", "C", "y"]) -> List[str]:
-    """
-    Generates the sequence of contained degrees of freedom for the specified sequence.
-    The default names follow the convention introduced on the cgNA+ website
-    """
-    if len(dof_names) != 4:
-        raise ValueError(
-            f"Requires 4 names for the degrees of freedom. {len(dof_names)} given."
-        )
-    N = len(seq)
-    if N == 0:
-        return []
-    vars = list()
-    for i in range(1, N + 1):
-        vars += [f"{dofn}{i}" for dofn in dof_names]
-    return vars[1:-2]
+
+
+
+
 
 
 if __name__ == "__main__":
     
-    np.set_printoptions(linewidth=250)
-    
-    seq = 'ACGATCGAAGCGATATCGCGGCGGGGGGGGCATTT'
     seq = 'ACGATC'
-
-    print(len(seq))
-    gs,stiff = cgnaplus_bps_params(seq)
+    
+    test_order_of_rotation_marginals(seq)
+    sys.exit()
     
 
-    # for i in range(len(stiff)//3):
-    #     print(stiff[i*3:(i+1)*3,i*3:(i+1)*3]*0.34)
     
-    from .transform_cayley2euler import *
-    from .transform_marginals import *
-    from .transform_statevec import *
+    
+
+
+
+
 
     gs_euler    = cayleys2eulers(gs)
     stiff_euler = cayley2euler_stiffmat(gs,stiff)
