@@ -12,7 +12,7 @@ from .transform_marginals import *
 from .transform_statevec import *
 from numba import njit
 
-def test_order_of_rotation_marginals(seq: str = 'ACGATC',num_confs = 1000000):
+def test_order_of_rotation_marginals(seq: str = 'ACGATC',num_confs = 100000):
     np.set_printoptions(linewidth=250)
     
     # generate stiffness
@@ -53,15 +53,15 @@ def test_order_of_rotation_marginals(seq: str = 'ACGATC',num_confs = 1000000):
     print((cov[:3,:3]-covrot[:3,:3])/covrot[:3,:3])
     
     # transform to cayley
-    cayleys     = eulers2cayleys(eulers)
-    cayleys_rot = eulers2cayleys(eulers_rot)
-    cayleys_gs  = eulers2cayleys(euler_gs)
-    cayleys_rot_gs = eulers2cayleys(euler_rot_gs)
+    cayleys     = euler2cayley(eulers)
+    cayleys_rot = euler2cayley(eulers_rot)
+    cayleys_gs  = euler2cayley(euler_gs)
+    cayleys_rot_gs = euler2cayley(euler_rot_gs)
     cayleys_dx     = cayleys - cayleys_gs
     cayleys_rot_dx = cayleys_rot - cayleys_rot_gs
     
     # test transformation
-    if np.abs(np.sum(cayleys[:,:,:3]-eulers2cayleys(eulers[:,:,:3]))) > 1e-10:
+    if np.abs(np.sum(cayleys[:,:,:3]-euler2cayley(eulers[:,:,:3]))) > 1e-10:
         print('Caylay2cayley inconsistent with and without translations')
     else:
         print('Caylay2cayley consistency checks out')
@@ -101,8 +101,8 @@ def test_order_of_rotation_marginals(seq: str = 'ACGATC',num_confs = 1000000):
     print('#####################################')
     print('#####################################')
     print('#####################################')
-    print(f'full diff = {np.abs(np.sum(eulers-cayleys2eulers(cayleys)))}')
-    print(f'rot  diff = {np.abs(np.sum(eulers_rot-cayleys2eulers(cayleys_rot)))}')
+    print(f'full diff = {np.abs(np.sum(eulers-cayley2euler(cayleys)))}')
+    print(f'rot  diff = {np.abs(np.sum(eulers_rot-cayley2euler(cayleys_rot)))}')
     
     
     
@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
 
 
-    gs_cayley    = eulers2cayleys(gs)
+    gs_cayley    = euler2cayley(gs)
     stiff_cayley = euler2cayley_stiffmat(gs,stiff)
     
     
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     rot_gs_euler    = gs
     
     rot_stiff_cayley = euler2cayley_stiffmat(rot_gs_euler,rot_stiff_euler)
-    rot_gs_cayley    = eulers2cayleys(rot_gs_euler)
+    rot_gs_cayley    = euler2cayley(rot_gs_euler)
     
 
     num_confs = 100000
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     dx_euler = np.random.multivariate_normal(np.zeros(len(rot_covmat_euler)), rot_covmat_euler, num_confs)
     
     rot_eulers = rot_gs_euler + statevec2vecs(dx_euler,vdim=6)
-    rot_cayleys  = eulers2cayleys(rot_eulers)
+    rot_cayleys  = euler2cayley(rot_eulers)
     
     print(rot_eulers[1])
     print(rot_cayleys[1])
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     # dx_cayley  = np.random.multivariate_normal(np.zeros(len(covmat_euler)), covmat_euler, num_confs)
     
     eulers = gs + statevec2vecs(dx_euler,vdim=6)
-    cayleys  = eulers2cayleys(eulers)
+    cayleys  = euler2cayley(eulers)
     
     # mean cayley
     cayleys_state = vecs2statevec(cayleys)
@@ -323,7 +323,7 @@ if __name__ == "__main__":
         print(stiff2[i*3:(i+1)*3,i*3:(i+1)*3]*0.34)
         
     gs_euler = statevec2vecs(gs,vdim=6)
-    gs_cayley = eulers2cayleys(gs_euler)
+    gs_cayley = euler2cayley(gs_euler)
     
     # from .transform_SE3 import se3_cayleys2rotmats, se3_vecs2rotmats, se3_rotmats2triads, se3_triads2rotmats, se3_rotmats2vecs, se3_transformations_normal2midsteptrans
     from .transform_SE3 import *

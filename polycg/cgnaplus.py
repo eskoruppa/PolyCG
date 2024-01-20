@@ -75,7 +75,7 @@ if __name__ == "__main__":
     from .transform_marginals import *
     from .transform_statevec import *
 
-    gs_euler    = cayleys2eulers(gs)
+    gs_euler    = cayley2euler(gs)
     stiff_euler = cayley2euler_stiffmat(gs,stiff)
     
     
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     rot_gs_cayley    = gs
     
     rot_stiff_euler = cayley2euler_stiffmat(rot_gs_cayley,rot_stiff_cayley)
-    rot_gs_euler    = cayleys2eulers(rot_gs_cayley)
+    rot_gs_euler    = cayley2euler(rot_gs_cayley)
     
 
     num_confs = 100000
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     dx_cayley = np.random.multivariate_normal(np.zeros(len(rot_covmat_cayley)), rot_covmat_cayley, num_confs)
     
     rot_cayleys = rot_gs_cayley + statevec2vecs(dx_cayley,vdim=6)
-    rot_eulers  = cayleys2eulers(rot_cayleys)
+    rot_eulers  = cayley2euler(rot_cayleys)
     
     print(rot_cayleys[1])
     print(rot_eulers[1])
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     # dx_euler  = np.random.multivariate_normal(np.zeros(len(covmat_cayley)), covmat_cayley, num_confs)
     
     cayleys = gs + statevec2vecs(dx_cayley,vdim=6)
-    eulers  = cayleys2eulers(cayleys)
+    eulers  = cayley2euler(cayleys)
     
     # mean euler
     eulers_state = vecs2statevec(eulers)
@@ -248,7 +248,7 @@ if __name__ == "__main__":
         print(stiff2[i*3:(i+1)*3,i*3:(i+1)*3]*0.34)
         
     gs_cayley = statevec2vecs(gs,vdim=6)
-    gs_euler = cayleys2eulers(gs_cayley)
+    gs_euler = cayley2euler(gs_cayley)
     
     # from .transform_SE3 import se3_eulers2rotmats, se3_vecs2rotmats, se3_rotmats2triads, se3_triads2rotmats, se3_rotmats2vecs, se3_transformations_normal2midsteptrans
     from .transform_SE3 import *
