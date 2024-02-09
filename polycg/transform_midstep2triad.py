@@ -38,16 +38,23 @@ def midstep2triad(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first:
         # vec2rotmat = so3.cayley2rotmat
     else:
         raise ValueError(f'Invalid rotation_method "{rotation_map}".')
-     
-    for i, vec in enumerate(vecs):
-        vrot   = vec[rotslice]
-        vtrans = vec[transslice]
-        # rotmat = vec2rotmat(vrot)
-        # sqrt_rotmat = so3.sqrt_rot(rotmat) 
-        # print(f'diff = {np.abs(np.sum(sqrt_rotmat-vrot2sqrt_rot(vrot)))}')
+    
+    if len(vecs.shape) == 1:
+        vrot   = vecs[rotslice]
+        vtrans = vecs[transslice]
         sqrt_rotmat = vrot2sqrt_rot(vrot)
-        nvecs[i,transslice] = sqrt_rotmat @ vtrans
-    return nvecs
+        return sqrt_rotmat @ vtrans
+    else:
+        for i, vec in enumerate(vecs):
+            vrot   = vec[rotslice]
+            vtrans = vec[transslice]
+            # rotmat = vec2rotmat(vrot)
+            # sqrt_rotmat = so3.sqrt_rot(rotmat) 
+            # print(f'diff = {np.abs(np.sum(sqrt_rotmat-vrot2sqrt_rot(vrot)))}')
+            sqrt_rotmat = vrot2sqrt_rot(vrot)
+            nvecs[i,transslice] = sqrt_rotmat @ vtrans
+        return nvecs
+
 
 def triad2midstep(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first: bool = True):
     if vecs.shape[-1] != 6:
@@ -78,15 +85,22 @@ def triad2midstep(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first:
         # vec2rotmat = so3.cayley2rotmat
     else:
         raise ValueError(f'Invalid rotation_method "{rotation_map}".')
-     
-    for i, vec in enumerate(vecs):
-        vrot   = vec[rotslice]
-        vtrans = vec[transslice]
-        # rotmat = vec2rotmat(vrot)
-        # sqrt_rotmat = so3.sqrt_rot(rotmat) 
+    
+    if len(vecs.shape) == 1:
+        vrot   = vecs[rotslice]
+        vtrans = vecs[transslice]
         sqrt_rotmat = vrot2sqrt_rot(vrot)
-        nvecs[i,transslice] = sqrt_rotmat.T @ vtrans
-    return nvecs
+        return sqrt_rotmat.T @ vtrans
+        
+    else:
+        for i, vec in enumerate(vecs):
+            vrot   = vec[rotslice]
+            vtrans = vec[transslice]
+            # rotmat = vec2rotmat(vrot)
+            # sqrt_rotmat = so3.sqrt_rot(rotmat) 
+            sqrt_rotmat = vrot2sqrt_rot(vrot)
+            nvecs[i,transslice] = sqrt_rotmat.T @ vtrans
+        return nvecs
     
 
 ##########################################################################################################

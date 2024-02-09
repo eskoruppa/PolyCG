@@ -91,6 +91,14 @@ def test_composite(seq: str = 'ACGATC',num_confs = 10000):
             s = sqrtS @ zeta_0
             group_gs[i,3:] = s
     
+    from .transform_midstep2triad import midstep2triad
+    test_group_gs = midstep2triad(algebra_gs)
+    
+    # for i in range(len(group_gs)):
+    #     print(np.abs(np.sum(group_gs[i]-test_group_gs[i])))
+    
+    # sys.exit()
+    
     group_stiff = algebra2group_stiffmat(algebra_gs,algebra_stiff,rotation_first=True,translation_as_midstep=translation_as_midstep)
     
     idfrom = 30
@@ -113,7 +121,13 @@ def test_composite(seq: str = 'ACGATC',num_confs = 10000):
     #     switched_gs[i,3] = group_gs[i,5]
     
     
-    # print(group_stiff)
+    print(group_stiff[18:24,18:24]*0.34)
+
+    print(marginal_schur_complement(group_stiff[18:24,18:24]*0.34,retained_ids=[0,1,2]))
+    print(marginal_schur_complement(group_stiff[24:30,24:30]*0.34,retained_ids=[0,1,2]))
+    print(marginal_schur_complement(group_stiff[30:36,30:36]*0.34,retained_ids=[0,1,2]))
+    sys.exit()
+    
     print('gs')
     print(group_gs)
     print('switched')
