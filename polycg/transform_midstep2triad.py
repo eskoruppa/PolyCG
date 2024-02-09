@@ -43,7 +43,8 @@ def midstep2triad(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first:
         vrot   = vecs[rotslice]
         vtrans = vecs[transslice]
         sqrt_rotmat = vrot2sqrt_rot(vrot)
-        return sqrt_rotmat @ vtrans
+        nvecs[transslice] = sqrt_rotmat @ vtrans
+        return nvecs
     else:
         for i, vec in enumerate(vecs):
             vrot   = vec[rotslice]
@@ -90,7 +91,8 @@ def triad2midstep(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first:
         vrot   = vecs[rotslice]
         vtrans = vecs[transslice]
         sqrt_rotmat = vrot2sqrt_rot(vrot)
-        return sqrt_rotmat.T @ vtrans
+        nvecs[transslice] = sqrt_rotmat.T @ vtrans
+        return nvecs
         
     else:
         for i, vec in enumerate(vecs):
