@@ -40,6 +40,8 @@ def test_cayley2euler(seq: str = 'ACGATC',num_confs = 10000):
     np.set_printoptions(linewidth=250)
     
     # generate stiffness
+    # parameter_set_name = 'Prmset_cgRNA+_OL3_CGF_10mus_int_12mus_ends'
+    # cayley_gs,cayley_stiff = cgnaplus_bps_params(seq,parameter_set_name=parameter_set_name)
     cayley_gs,cayley_stiff = cgnaplus_bps_params(seq)
     
     # rotational marginals
@@ -108,6 +110,13 @@ def test_cayley2euler(seq: str = 'ACGATC',num_confs = 10000):
     print(matrix_rotmarginal(euler_stiff_lintrans)[:3,:3])
     print('Transformed Euler stiffness marginalied before transformation')
     print(euler_rot_stiff_lintrans[:3,:3])
+    
+    # twist-stretch coupling    
+    # k = 1
+    # print(euler_stiff_lintrans[6*k:6*k+6,6*k:6*k+6])
+    # twist_stretch = matrix_marginal(euler_stiff_lintrans[6*k:6*k+6,6*k:6*k+6],select_indices=np.array([0,0,1,1,1,1]))
+    # print(twist_stretch)
+    # sys.exit()
     
     print('#####################################')
     print(cayley_stiff[:3,:3])

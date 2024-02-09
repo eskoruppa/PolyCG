@@ -20,7 +20,7 @@ def statevec2vecs(statevec: np.ndarray, vdim: int) -> np.ndarray:
     
     if statevec.shape[-1] % vdim != 0:
         raise ValueError(
-            f"statevec is inconsistent with list of euler vectors. THe number of entries needs to be a multiple of vdim. len(statevec)%vdim = {len(statevec)%vdim}"
+            f"statevec2vecs: statevec is inconsistent with list of euler vectors. The number of entries needs to be a multiple of vdim. len(statevec)%vdim = {len(statevec)%vdim}"
         )
     
     shape = list(statevec.shape)

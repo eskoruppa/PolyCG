@@ -17,7 +17,8 @@ def cgnaplus_bps_params(
     sequence: str, 
     remove_factor_five: bool = True, 
     parameter_set_name: str = 'curves_plus',
-    separate_vectors: bool = True
+    separate_vectors: bool = True,
+    translations_in_nm: bool = True
     ) -> Tuple[np.ndarray,np.ndarray]:
     
     if parameter_set_name == 'curves_plus':
@@ -33,6 +34,11 @@ def cgnaplus_bps_params(
         factor = 5
         gs   = conversion(gs,1./factor,block_dim=6,dofs=[0,1,2])
         stiff = conversion(stiff,factor,block_dim=6,dofs=[0,1,2])
+    
+    if translations_in_nm:
+        factor = 10
+        gs   = conversion(gs,1./factor,block_dim=6,dofs=[3,4,5])
+        stiff = conversion(stiff,factor,block_dim=6,dofs=[3,4,5])
     
     if separate_vectors:
         gs = statevec2vecs(gs,vdim=6)  
@@ -201,7 +207,7 @@ if __name__ == "__main__":
     # print(stiff[:6,:6])
     # print(stiff_euler[:6,:6])
     
-    from .transform_translation_midstep2triad import *
+    from .transform_midstep2triad import *
     
     gs_euler_triad = translation_midstep2triad(gs_euler,rotation_map = 'euler')
     
@@ -253,7 +259,7 @@ if __name__ == "__main__":
     # from .transform_SE3 import se3_eulers2rotmats, se3_vecs2rotmats, se3_rotmats2triads, se3_triads2rotmats, se3_rotmats2vecs, se3_transformations_normal2midsteptrans
     from .transform_SE3 import *
     
-    from .transform_translation_midstep2triad import *
+    from .transform_midstep2triad import *
     
     gs_triad = translation_midstep2triad(gs_euler)
     

@@ -9,14 +9,14 @@ from .pyConDec.pycondec import cond_jit
 ############# Transformation between midsteptriad and triad definitions of translations ##################
 ##########################################################################################################
 
-def translation_midstep2triad(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first: bool = True):
+def midstep2triad(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first: bool = True):
     if vecs.shape[-1] != 6:
         raise ValueError(f"Expected set of 6-vectors. Instead received shape {vecs.shape}")
     
     nvecs = np.copy(vecs)
     if len(vecs.shape) > 2:
         for i, vec in enumerate(vecs):
-            nvecs[i] = translation_midstep2triad(vec,rotation_map=rotation_map,rotation_first=rotation_first)
+            nvecs[i] = midstep2triad(vec,rotation_map=rotation_map,rotation_first=rotation_first)
         return nvecs
     
     if rotation_first:  
@@ -49,14 +49,14 @@ def translation_midstep2triad(vecs: np.ndarray, rotation_map: str = 'euler', rot
         nvecs[i,transslice] = sqrt_rotmat @ vtrans
     return nvecs
 
-def translation_triad2midstep(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first: bool = True):
+def triad2midstep(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first: bool = True):
     if vecs.shape[-1] != 6:
         raise ValueError(f"Expected set of 6-vectors. Instead received shape {vecs.shape}")
     
     nvecs = np.copy(vecs)
     if len(vecs.shape) > 2:
         for i, vec in enumerate(vecs):
-            nvecs[i] = translation_triad2midstep(vec,rotation_map=rotation_map,rotation_first=rotation_first)
+            nvecs[i] = triad2midstep(vec,rotation_map=rotation_map,rotation_first=rotation_first)
         return nvecs
     
     if rotation_first:  
@@ -133,11 +133,13 @@ def midstep2triad_lintrans(
         Hm = np.eye(6)
         Hm[3:,3:] = sqrt_rotmat
         
-        print('warning no cross coupling in midstep2triad')
-        # crosscoup = 0.5*sqrt_rotmat @ zeta0_hat.T
+        # print('warning no cross coupling in midstep2triad')
+        crosscoup = 0.5*sqrt_rotmat @ zeta0_hat.T
         # if split_fluctuations == 'so3':
-        #     crosscoup = crosscoup @ so3.splittransform_algebra2group(Omega0)     
-        # Hm[3:,:3] = crosscoup
+        #     crosscoup = crosscoup @ so3.splittransform_algebra2group(Omega0)  
+        Hm[3:,:3] = crosscoup
+        
+        Hm[:3,:3] = so3.splittransform_group2algebra(Omega0)
         return Hm
 
     ###################################################
@@ -166,17 +168,17 @@ def triad2midstep_lintrans(
     """Linearization of transformation from midsteptriad- to triad-definitions of translations. The rotational component needs to be expressed in euler coordinates.
     """
     
-    if split_fluctuations not in ['vector','matrix', 'so3', 'SO3']:
-        raise ValueError(f'Invalid split_fluctutations method "{split_fluctuations}". Should be either "vector" or "so3" for splitting in so3 or "matrix" or "SO3" for splitting in SO3.')
+    # if split_fluctuations not in ['vector','matrix', 'so3', 'SO3']:
+    #     raise ValueError(f'Invalid split_fluctutations method "{split_fluctuations}". Should be either "vector" or "so3" for splitting in so3 or "matrix" or "SO3" for splitting in SO3.')
     if groundstate_definition not in ['midstep','triad']:
         raise ValueError(f'Invalid groundstate_definition method "{groundstate_definition}". Should be either "midstep" or "triad".')
     if groundstate_euler.shape[-1] != 6:
         raise ValueError(f"Expected set of 6-vectors or a single 6-vector. Instead received shape {groundstate_euler.shape}")
     
-    if split_fluctuations == 'vector':
-        split_fluctuations = 'so3' 
-    if split_fluctuations == 'matrix':
-        split_fluctuations = 'SO3' 
+    # if split_fluctuations == 'vector':
+    #     split_fluctuations = 'so3' 
+    # if split_fluctuations == 'matrix':
+    #     split_fluctuations = 'SO3' 
     
     ###################################################
     ###################################################
@@ -195,12 +197,11 @@ def triad2midstep_lintrans(
         zeta0_hat    = so3.hat_map(zeta0)
         H = np.eye(6)
         H[3:,3:] = sqrt_rotmat.T
-        
-        # print('warning no cross coupling in triad2midstep')
+                
         crosscoup = 0.5 * zeta0_hat
-        if split_fluctuations == 'so3':
-            print('so3')
-            crosscoup = crosscoup @ so3.splittransform_algebra2group(Omega0) 
+        # if split_fluctuations == 'so3':
+        #     print('so3')
+        #     crosscoup = crosscoup @ so3.splittransform_algebra2group(Omega0) 
         H[3:,:3] = crosscoup
         return H
 
@@ -219,3 +220,69 @@ def triad2midstep_lintrans(
             groundstate_definition=groundstate_definition)
     
     return H
+
+
+##########################################################################################################
+######################## Transformation of stiffness matrices ############################################
+##########################################################################################################
+
+
+
+def midstep2triad_stiffmat(
+    groundstate_euler: np.ndarray, 
+    stiff_midstep: np.ndarray, 
+    split_fluctuations: str = 'vector',
+    groundstate_definition: str = 'midstep',
+    rotation_first: bool = True 
+    ) -> np.ndarray:
+    """Converts stiffness matrix from midstep definition of translations to SE(3) (triad) definition. The rotational
+    component has to be expressed in euler coordinates. 
+
+    Args:
+        groundstate_euler (np.ndarray): Nx6 dimensional ground state. The rotational components have to be expressed in euler coordinates.
+        Translational component of the ground state can either be expressed in the coodinate
+        system of the midstep-triad (groundstate_definition = 'midstep') or in the coodinate system of the first triad of the repsective pair
+        (groundstate_definition = 'triad').
+        stiff_midstep (np.ndarray): stiffness matrix in euler coodinates. Static and dynamic components may either be split at the lie algebra level (so(3) -> split_fluctuations = 'vector), or at the lie
+        group level (SO(3) split_fluctuations = 'matrix').
+        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of fre
+
+    Returns:
+        np.ndarray: Transformed stiffness matrix.
+    """ 
+    Tt2m = triad2midstep_lintrans(
+        groundstate_euler,
+        rotation_first=rotation_first,
+        split_fluctuations=split_fluctuations,
+        groundstate_definition=groundstate_definition)
+    return Tt2m.T @ stiff_midstep @ Tt2m
+
+
+def triad2midstep_stiffmat(
+    groundstate_euler: np.ndarray, 
+    stiff_triad: np.ndarray, 
+    split_fluctuations: str = 'vector',
+    groundstate_definition: str = 'midstep',
+    rotation_first: bool = True 
+    ) -> np.ndarray:
+    """Converts stiffness matrix from SE(3) (triad) definition of translations to midstep definition. The rotational
+    component has to be expressed in euler coordinates. 
+
+    Args:
+        groundstate_euler (np.ndarray): Nx6 dimensional ground state. The rotational components have to be expressed in euler coordinates.
+        Translational component of the ground state can either be expressed in the coodinate
+        system of the midstep-triad (groundstate_definition = 'midstep') or in the coodinate system of the first triad of the repsective pair
+        (groundstate_definition = 'triad').
+        stiff_midstep (np.ndarray): stiffness matrix in euler coodinates. Static and dynamic components may either be split at the lie algebra level (so(3) -> split_fluctuations = 'vector), or at the lie
+        group level (SO(3) split_fluctuations = 'matrix').
+        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of fre
+
+    Returns:
+        np.ndarray: Transformed stiffness matrix.
+    """ 
+    Tm2t = midstep2triad_lintrans(
+        groundstate_euler,
+        rotation_first=rotation_first,
+        split_fluctuations=split_fluctuations,
+        groundstate_definition=groundstate_definition)
+    return Tm2t.T @ stiff_triad @ Tm2t

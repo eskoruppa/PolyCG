@@ -208,36 +208,36 @@ def vector_blockmarginal(
 
 def matrix_rotmarginal(
     matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix, 
-    rotations_first: bool = True
+    rotation_first: bool = True
 ) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix:
-    if rotations_first:
+    if rotation_first:
         return matrix_blockmarginal(matrix,block_size=6,block_index_list=[0,1,2])
     else:
         return matrix_blockmarginal(matrix,block_size=6,block_index_list=[3,4,5])
     
 def matrix_transmarginal(
     matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix, 
-    rotations_first: bool = True
+    rotation_first: bool = True
 ) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix:
-    if rotations_first:
+    if rotation_first:
         return matrix_blockmarginal(matrix,block_size=6,block_index_list=[3,4,5])
     else:
         return matrix_blockmarginal(matrix,block_size=6,block_index_list=[0,1,2])
     
 def vector_rotmarginal(
     vector: np.ndarray,
-    rotations_first: bool = True
+    rotation_first: bool = True
 ) -> np.ndarray:
-    if rotations_first:
+    if rotation_first:
         return vector_blockmarginal(vector,block_size=6,block_index_list=[0,1,2])
     else:
         return vector_blockmarginal(vector,block_size=6,block_index_list=[3,4,5])
     
 def vector_transmarginal(
     vector: np.ndarray,
-    rotations_first: bool = True
+    rotation_first: bool = True
 ) -> np.ndarray:
-    if rotations_first:
+    if rotation_first:
         return vector_blockmarginal(vector,block_size=6,block_index_list=[3,4,5])
     else:
         return vector_blockmarginal(vector,block_size=6,block_index_list=[0,1,2])

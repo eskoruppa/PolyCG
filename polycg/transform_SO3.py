@@ -10,7 +10,7 @@ from .pyConDec.pycondec import cond_jit
 ##########################################################################################################
 
 
-def eulers2rotmats(eulers: np.ndarray) -> np.ndarray:
+def euler2rotmat_so3(eulers: np.ndarray) -> np.ndarray:
     """Converts configuration of euler vectors into collection of rotation matrices
 
     Args:
@@ -20,18 +20,20 @@ def eulers2rotmats(eulers: np.ndarray) -> np.ndarray:
         np.ndarray: collection of rotation matrices (...,N,3,3)
     """
     if eulers.shape[-1] != 3:
+        if eulers.shape[-1] == 4:
+            raise ValueError(f"Expected set of 3-vectors. Instead received set of 4-vectors. For the the corresponding transformation in se3 please use euler2rotmat or se3_euler2rotmat.")
         raise ValueError(f"Expected set of 3-vectors. Instead received shape {eulers.shape}")
     rotmats = np.zeros(eulers.shape + (3,))
     if len(eulers.shape) > 2:
         for i in range(len(eulers)):
-            rotmats[i] = eulers2rotmats(eulers[i])
+            rotmats[i] = euler2rotmat_so3(eulers[i])
         return rotmats
     for i, euler in enumerate(eulers):
         rotmats[i] = so3.euler2rotmat(euler)
     return rotmats
 
 
-def rotmats2eulers(rotmats: np.ndarray) -> np.ndarray:
+def rotmat2euler_so3(rotmats: np.ndarray) -> np.ndarray:
     """Converts collection of rotation matrices into collection of euler vectors
 
     Args:
@@ -40,10 +42,14 @@ def rotmats2eulers(rotmats: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: Collection of euler vectrs (...,N,3)
     """
+    if rotmats.shape[-1] != 3:
+        if rotmats.shape[-2:] == (4,4):
+            raise ValueError(f"Expected set of 3x3-matrices. Received set of 4x4-matrices. For the the corresponding transformation in se3 please use rotmat2euler or se3_rotmat2euler.")
+        raise ValueError(f"Expected set of 3x3-matrices. Instead received shape {rotmats.shape}.")
     eulers = np.zeros(rotmats.shape[:-1])
     if len(rotmats.shape) > 3:
         for i in range(len(rotmats)):
-            eulers[i] = rotmats2eulers(rotmats[i])
+            eulers[i] = rotmat2euler_so3(rotmats[i])
         return eulers
     for i, rotmat in enumerate(rotmats):
         eulers[i] = so3.rotmat2euler(rotmat)
@@ -183,7 +189,7 @@ def rotmats2eulers(rotmats: np.ndarray) -> np.ndarray:
 ##########################################################################################################
 
 
-def cayleys2rotmats(cayleys: np.ndarray) -> np.ndarray:
+def cayley2rotmat(cayleys: np.ndarray) -> np.ndarray:
     """Converts configuration of euler vectors into collection of rotation matrices
 
     Args:
@@ -198,14 +204,14 @@ def cayleys2rotmats(cayleys: np.ndarray) -> np.ndarray:
     rotmats = np.zeros(cayleys.shape + (3,))
     if len(cayleys.shape) > 2:
         for i in range(len(cayleys)):
-            rotmats[i] = cayleys2rotmats(cayleys[i])
+            rotmats[i] = cayley2rotmat(cayleys[i])
         return rotmats
     for i, cayley in enumerate(cayleys):
         rotmats[i] = so3.cayley2rotmat(cayley)
     return rotmats
 
 
-def rotmats2cayleys(rotmats: np.ndarray) -> np.ndarray:
+def rotmat2cayley(rotmats: np.ndarray) -> np.ndarray:
     """Converts collection of rotation matrices into collection of euler vectors
 
     Args:
@@ -217,7 +223,7 @@ def rotmats2cayleys(rotmats: np.ndarray) -> np.ndarray:
     cayleys = np.zeros(rotmats.shape[:-1])
     if len(rotmats.shape) > 3:
         for i in range(len(rotmats)):
-            cayleys[i] = rotmats2cayleys(rotmats[i])
+            cayleys[i] = rotmat2cayley(rotmats[i])
         return cayleys
     for i, rotmat in enumerate(rotmats):
         cayleys[i] = so3.rotmat2cayley(rotmat)
@@ -228,7 +234,7 @@ def rotmats2cayleys(rotmats: np.ndarray) -> np.ndarray:
 ##########################################################################################################
 
 
-def vecs2rotmats(vecs: np.ndarray, rotation_map: str = "euler") -> np.ndarray:
+def vec2rotmat_so3(vecs: np.ndarray, rotation_map: str = "euler") -> np.ndarray:
     """Converts configuration of vectors into collection of rotation matrices
 
     Args:
@@ -241,14 +247,14 @@ def vecs2rotmats(vecs: np.ndarray, rotation_map: str = "euler") -> np.ndarray:
         np.ndarray: collection of rotation matrices (...,N,3,3)
     """
     if rotation_map == "euler":
-        return eulers2rotmats(vecs)
+        return euler2rotmat_so3(vecs)
     elif rotation_map == "cayley":
-        return cayleys2rotmats(vecs)
+        return cayley2rotmat(vecs)
     else:
         raise ValueError(f'Unknown rotation_map "{rotation_map}"')
 
 
-def rotmats2vecs(rotmats: np.ndarray, rotation_map: str = "euler") -> np.ndarray:
+def rotmats2vecs_so3(rotmats: np.ndarray, rotation_map: str = "euler") -> np.ndarray:
     """Converts collection of rotation matrices into collection of vectors
 
     Args:
@@ -261,9 +267,9 @@ def rotmats2vecs(rotmats: np.ndarray, rotation_map: str = "euler") -> np.ndarray
         np.ndarray: Collection of vectors (...,N,3)
     """
     if rotation_map == "euler":
-        return rotmats2eulers(rotmats)
+        return rotmat2euler_so3(rotmats)
     elif rotation_map == "cayley":
-        return rotmats2cayleys(rotmats)
+        return rotmat2cayley(rotmats)
     else:
         raise ValueError(f'Unknown rotation_map "{rotation_map}"')
 
@@ -273,7 +279,7 @@ def rotmats2vecs(rotmats: np.ndarray, rotation_map: str = "euler") -> np.ndarray
 ##########################################################################################################
 
 
-def rotmats2triads(rotmats: np.ndarray, first_triad=None) -> np.ndarray:
+def rotmat2triad(rotmats: np.ndarray, first_triad=None) -> np.ndarray:
     """Converts collection of rotation matrices into collection of triads
 
     Args:
@@ -288,7 +294,7 @@ def rotmats2triads(rotmats: np.ndarray, first_triad=None) -> np.ndarray:
     triads = np.zeros(tuple(sh))
     if len(rotmats.shape) > 3:
         for i in range(len(rotmats)):
-            triads[i] = rotmats2triads(rotmats[i])
+            triads[i] = rotmat2triad(rotmats[i])
         return triads
 
     if first_triad is None:
@@ -304,7 +310,7 @@ def rotmats2triads(rotmats: np.ndarray, first_triad=None) -> np.ndarray:
     return triads
 
 
-def triads2rotmats(triads: np.ndarray) -> np.ndarray:
+def triad2rotmat(triads: np.ndarray) -> np.ndarray:
     """Converts set of triads into set of rotation matrices
 
     Args:
@@ -318,7 +324,7 @@ def triads2rotmats(triads: np.ndarray) -> np.ndarray:
     rotmats = np.zeros(tuple(sh))
     if len(triads.shape) > 3:
         for i in range(len(triads)):
-            rotmats[i] = triads2rotmats(triads[i])
+            rotmats[i] = triad2rotmat(triads[i])
         return rotmats
 
     for i in range(len(triads) - 1):
@@ -331,7 +337,7 @@ def triads2rotmats(triads: np.ndarray) -> np.ndarray:
 ############### Generate positions from triads ###########################################################
 ##########################################################################################################
 
-def triads2positions(triads: np.ndarray, disc_len=0.34) -> np.ndarray:
+def triad2position(triads: np.ndarray, disc_len=0.34) -> np.ndarray:
     """generates a set of position vectors from a set of triads
 
     Args:
@@ -344,7 +350,7 @@ def triads2positions(triads: np.ndarray, disc_len=0.34) -> np.ndarray:
     pos = np.zeros(triads.shape[:-1])
     if len(triads.shape) > 3:
         for i in range(len(triads)):
-            pos[i] = triads2positions(triads[i])
+            pos[i] = triad2position(triads[i])
         return pos
     pos[0] = np.zeros(3)
     for i in range(len(triads) - 1):
