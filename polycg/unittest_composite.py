@@ -17,7 +17,7 @@ from numba import njit
 from .composites import *
 
 
-def test_block(seq: str = 'ACGATC',num_confs = 10000):
+def test_block(seq: str = 'ACGATC', num_confs = 10000):
     np.set_printoptions(linewidth=250,precision=3,suppress=True)
     
     # generate stiffness
@@ -96,7 +96,6 @@ def test_composite(seq: str = 'ACGATC',num_confs = 10000):
     
     # for i in range(len(group_gs)):
     #     print(np.abs(np.sum(group_gs[i]-test_group_gs[i])))
-    
     # sys.exit()
     
     group_stiff = algebra2group_stiffmat(algebra_gs,algebra_stiff,rotation_first=True,translation_as_midstep=translation_as_midstep)
@@ -123,10 +122,10 @@ def test_composite(seq: str = 'ACGATC',num_confs = 10000):
     
     print(group_stiff[18:24,18:24]*0.34)
 
-    print(marginal_schur_complement(group_stiff[18:24,18:24]*0.34,retained_ids=[0,1,2]))
-    print(marginal_schur_complement(group_stiff[24:30,24:30]*0.34,retained_ids=[0,1,2]))
-    print(marginal_schur_complement(group_stiff[30:36,30:36]*0.34,retained_ids=[0,1,2]))
-    sys.exit()
+    # print(marginal_schur_complement(group_stiff[18:24,18:24]*0.34,retained_ids=[0,1,2]))
+    # print(marginal_schur_complement(group_stiff[24:30,24:30]*0.34,retained_ids=[0,1,2]))
+    # print(marginal_schur_complement(group_stiff[30:36,30:36]*0.34,retained_ids=[0,1,2]))
+    # sys.exit()
     
     print('gs')
     print(group_gs)
@@ -476,7 +475,7 @@ if __name__ == "__main__":
     
     seq = 'ACGATCGATCGGAATCCGATCATACTGGC'*5
     num_confs = 5000000
-    
+     
     print(f'len = {len(seq)}')
     
     # test_block(seq,num_confs=num_confs)

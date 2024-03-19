@@ -1,8 +1,9 @@
 import numpy as np
-from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix
-from scipy import sparse
 import scipy as sp
+from scipy import sparse
+from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix
 import sys
+import argparse
 
 from typing import List, Tuple, Callable, Any, Dict
 from .cgNA_plus.modules.cgDNAUtils import constructSeqParms
@@ -11,14 +12,22 @@ from .transform_marginals import vector_marginal, matrix_marginal, unwrap_wildty
 from .transform_units import conversion
 from .transform_statevec import statevec2vecs, vecs2statevec
 
+from .transform_cayley2euler import cayley2euler, cayley2euler_stiffmat
+from .transform_algebra2group import algebra2group_stiffmat
+from .transform_midstep2triad import midstep2triad
+
+from .partials import partial_stiff
+from .aux import load_sequence
+
 CURVES_PLUS_DATASET_NAME = "cgDNA+_Curves_BSTJ_10mus_FS"
 
 def cgnaplus_bps_params(
     sequence: str, 
-    remove_factor_five: bool = True, 
+    translations_in_nm: bool = True,
+    euler_definition: bool = True,
+    group_split: bool = False,
     parameter_set_name: str = 'curves_plus',
-    separate_vectors: bool = True,
-    translations_in_nm: bool = True
+    remove_factor_five: bool = True 
     ) -> Tuple[np.ndarray,np.ndarray]:
     
     if parameter_set_name == 'curves_plus':
@@ -40,10 +49,21 @@ def cgnaplus_bps_params(
         gs   = conversion(gs,1./factor,block_dim=6,dofs=[3,4,5])
         stiff = conversion(stiff,factor,block_dim=6,dofs=[3,4,5])
     
-    if separate_vectors:
-        gs = statevec2vecs(gs,vdim=6)  
-    return gs, stiff
+    gs = statevec2vecs(gs,vdim=6) 
 
+    if euler_definition:
+        # cayley2euler_stiffmat requires gs in cayley definition
+        stiff = cayley2euler_stiffmat(gs,stiff,rotation_first=True)
+        gs = cayley2euler(gs)
+    
+    if group_split:
+        if not euler_definition:
+            raise ValueError('The group_split option requires euler_definition to be set!')
+        
+        stiff = algebra2group_stiffmat(gs,stiff,rotation_first=True,translation_as_midstep=True)  
+        gs    = midstep2triad(gs)
+         
+    return gs, stiff
 
 def cgnaplus_name_assign(seq: str, dof_names=["W", "x", "C", "y"]) -> List[str]:
     """
@@ -63,220 +83,67 @@ def cgnaplus_name_assign(seq: str, dof_names=["W", "x", "C", "y"]) -> List[str]:
     return vars[1:-2]
 
 
-if __name__ == "__main__":
-    
-    np.set_printoptions(linewidth=250)
-    
-    seq = 'ACGATCGAAGCGATATCGCGGCGGGGGGGGCATTT'
-    seq = 'ACGATC'
 
-    print(len(seq))
-    gs,stiff = cgnaplus_bps_params(seq)
+if __name__ == '__main__':
     
+    parser = argparse.ArgumentParser(description="Generate PolyMC input files")
+    parser.add_argument('-seqfn', '--sequence_filename', type=str, required=True) 
+    # parser.add_argument('-out', '--out_filename', type=str, required=True) 
+    parser.add_argument('-nm',    '--translations_in_nm', type=bool, default=True)
+    parser.add_argument('-euler', '--euler_definition', type=bool, default=True)
+    parser.add_argument('-group', '--group_split', type=bool, default=False)
+    parser.add_argument('-fac5',  '--keep_factor_five', type=bool, default=False)
+    parser.add_argument('-set',   '--parameter_set_name', type=str, default='curves_plus')
+    
+    parser.add_argument('-closed','--closed', type=bool, default=False)
+    parser.add_argument('-bs',    '--block_size', type=int, default=120)
+    parser.add_argument('-os',    '--overlap_size', type=int, default=20)
+    parser.add_argument('-ts',    '--tail_size', type=int, default=20)
+    
+    args = parser.parse_args()
+    
+    seq = load_sequence(args.sequence_filename)
+    # seq = seq[:10]
+    
+    if len(seq) == 0:
+        raise IOError('Empty sequence found')
 
-    # for i in range(len(stiff)//3):
-    #     print(stiff[i*3:(i+1)*3,i*3:(i+1)*3]*0.34)
-    
-    from .transform_cayley2euler import *
-    from .transform_marginals import *
-    from .transform_statevec import *
+    nbps = len(seq)-1
+    if args.closed:
+        nbps += 1
+    print(f'Sequence contains {len(seq)} base pairs.')
 
-    gs_euler    = cayley2euler(gs)
-    stiff_euler = cayley2euler_stiffmat(gs,stiff)
+    method = cgnaplus_bps_params
+    stiffgen_args = {
+        'translations_in_nm': args.translations_in_nm, 
+        'euler_definition': args.euler_definition, 
+        'group_split' : args.group_split,
+        'parameter_set_name' : args.parameter_set_name,
+        'remove_factor_five' : not args.keep_factor_five,
+        }
     
+    block_size = args.block_size
+    overlap_size = args.overlap_size
+    tail_size = args.tail_size
     
-    print(stiff.shape)
+    if overlap_size > nbps:
+        overlap_size = nbps-1
+    if block_size > nbps:
+        block_size = nbps
     
-    rot_stiff_cayley = matrix_rotmarginal(stiff)
-    rot_gs_cayley    = gs[:,:3]
-    
-    print(np.linalg.inv(rot_stiff_cayley)[:3,:3])
-    print(np.linalg.inv(stiff)[:3,:3])
-    
+    print('Generating partial stiffness matrix with')    
+    print(f'block_size:   {block_size}')
+    print(f'overlap_size: {overlap_size}')
+    print(f'tail_size:    {tail_size}')
 
-    sys.exit()
-    
-    
-        
-    rot_stiff_cayley = stiff
-    rot_gs_cayley    = gs
-    
-    rot_stiff_euler = cayley2euler_stiffmat(rot_gs_cayley,rot_stiff_cayley)
-    rot_gs_euler    = cayley2euler(rot_gs_cayley)
-    
+    gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=args.closed,ndims=6)
 
-    num_confs = 100000
-    rot_covmat_cayley = np.linalg.inv(rot_stiff_cayley)
-    
-    dx_cayley = np.random.multivariate_normal(np.zeros(len(rot_covmat_cayley)), rot_covmat_cayley, num_confs)
-    
-    rot_cayleys = rot_gs_cayley + statevec2vecs(dx_cayley,vdim=6)
-    rot_eulers  = cayley2euler(rot_cayleys)
-    
-    print(rot_cayleys[1])
-    print(rot_eulers[1])
-    sys.exit()
-    
-    
-    rot_euler_dx = rot_eulers - rot_gs_euler
-    
-    cov = np.zeros(rot_covmat_cayley.shape)
-    for i in range(len(rot_euler_dx)):
-        cov += np.outer(rot_euler_dx[i],rot_euler_dx[i])
-    cov /= len(rot_euler_dx)
-    
-    rot_stiff_euler_sampled = np.linalg.inv(cov)
-    
+    basefn = args.sequence_filename + '_params'
+    if args.closed:
+        basefn += '_closed'
 
-
-    print(rot_stiff_euler[:3,:3])
-    print(rot_stiff_euler_sampled[:3,:3])
-    
-    # print(matrix_rotmarginal(rot_stiff_euler_sampled)[:3,:3])
-    
-    
-    
-    sys.exit()
-    
-    
-    
-    num_confs = 100000
-    covmat_euler  = np.linalg.inv(stiff_euler)
-    covmat_cayley = np.linalg.inv(stiff)
-    
-    dx_cayley = np.random.multivariate_normal(np.zeros(len(covmat_cayley)), covmat_cayley, num_confs)
-    # dx_euler  = np.random.multivariate_normal(np.zeros(len(covmat_cayley)), covmat_cayley, num_confs)
-    
-    cayleys = gs + statevec2vecs(dx_cayley,vdim=6)
-    eulers  = cayley2euler(cayleys)
-    
-    # mean euler
-    eulers_state = vecs2statevec(eulers)
-    mean_euler = np.mean(eulers_state,axis=0)
-    dx_euler = eulers_state - vecs2statevec(gs_euler)
-    # cov euler
-    cov = np.zeros((len(eulers_state[-1]),)*2)
-    for i in range(len(dx_euler)):
-        cov += np.outer(dx_euler[i],dx_euler[i])
-    cov /= len(dx_euler)
-    
-    print('diff in mean')
-    print((statevec2vecs(mean_euler,vdim=6)-gs_euler) / gs_euler)
-    
-    euler_stiff_sampled = np.linalg.inv(cov)
-
-    print(f'diff stiff = {np.sum(stiff_euler - euler_stiff_sampled)}')
-    
-    pos = 3
-    print(stiff_euler[pos*6:pos*6+3,pos*6:pos*6+3]*0.34)
-    print(euler_stiff_sampled[pos*6:pos*6+3,pos*6:pos*6+3]*0.34)
-    
-    
-    sys.exit()
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    dx = np.random.multivariate_normal(np.zeros(len(covmat)), covmat, num_confs)
-    
-    
-    cov = np.zeros(covmat.shape)
-    for i in range(len(dx)):
-        cov += np.outer(dx[i],dx[i])
-    cov /= len(dx)
-    
-    stiff_euler_test = np.linalg.inv(cov)
-    
-    print(f'diff = {np.sum(stiff_euler-stiff_euler_test)}')
-    
-    print(stiff_euler[:6,:6])
-    print(stiff_euler_test[:6,:6])
-    
-    
-    sys.exit()
-    
-    
-    
-    
-    # print(stiff[:6,:6])
-    # print(stiff_euler[:6,:6])
-    
-    from .transform_midstep2triad import *
-    
-    gs_euler_triad = translation_midstep2triad(gs_euler,rotation_map = 'euler')
-    
-    H = midstep2triad_lintrans(gs_euler,split_fluctuations='vector')
-    H2 = midstep2triad_lintrans(gs_euler,split_fluctuations='matrix',groundstate_definition='triad')
-    
-    euler_del = np.random.normal(0,5/180*np.pi,size=gs_euler.shape)
-    # euler_del[:,:3] = 0
-    
-    euler = gs_euler + euler_del
-    euler_triad = translation_midstep2triad(euler,rotation_map = 'euler')
-    
-    euler_triad_del = euler_triad - gs_euler_triad
-
-    
-    euler_triad_del_test = statevec2vecs(H @ vecs2statevec(euler_del),vdim=6)
-    
-    euler_triad_del_test2 = statevec2vecs(H2 @ vecs2statevec(euler_del),vdim=6)
-    
-    for i in range(len(euler_triad_del)):
-        print('###########')
-        print(euler_triad_del[i])
-        print(euler_triad_del_test[i])
-        print(euler_triad_del_test2[i])
-        print(euler_del[i])
-        
-        print(f'del norm = {np.linalg.norm(euler_triad_del[i,3:]) - np.linalg.norm(euler_del[i,3:])}')
-        
-    
-
-    sys.exit()
-    
- 
-   
-    print('\n#############################')
-    rotstiff = matrix_rotmarginal(stiff)
-    for i in range(len(rotstiff)//3):
-        print(rotstiff[i*3:(i+1)*3,i*3:(i+1)*3]*0.34)
-        
-    retained_ids = [0,1,2,6,7,8,12,13,14,18,19,20,24,25,26]
-    stiff2 = marginal_schur_complement(stiff,retained_ids)
-    
-    for i in range(len(rotstiff)//3):
-        print(stiff2[i*3:(i+1)*3,i*3:(i+1)*3]*0.34)
-        
-    gs_cayley = statevec2vecs(gs,vdim=6)
-    gs_euler = cayley2euler(gs_cayley)
-    
-    # from .transform_SE3 import se3_eulers2rotmats, se3_vecs2rotmats, se3_rotmats2triads, se3_triads2rotmats, se3_rotmats2vecs, se3_transformations_normal2midsteptrans
-    from .transform_SE3 import *
-    
-    from .transform_midstep2triad import *
-    
-    gs_triad = translation_midstep2triad(gs_euler)
-    
-    rot_mid = se3_eulers2rotmats(gs_euler)
-    rot_tri = se3_transformations_midstep2triad(rot_mid)
-    
-    gs_triad_test = se3_rotmats2vecs(rot_tri,rotation_map='euler')
-    
-    
-    print('#########')
-    print(np.sum(gs_euler-gs_triad_test))
-    print(np.sum(gs_triad-gs_triad_test))
-    
-    
-    
-    
-    
-    
-    
-    
+    fn_gs = basefn + '_gs.npy'
+    fn_stiff = basefn + '_stiff.npz'
+    spstiff = stiff.to_sparse()
+    sparse.save_npz(fn_stiff,spstiff)
+    np.save(fn_gs,gs)

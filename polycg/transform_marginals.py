@@ -7,10 +7,10 @@ from .SO3 import so3
 
 
 def matrix_marginal(
-    matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix, 
+    matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix, 
     select_indices: np.ndarray,
     block_dim: int = 1
-) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix:
+) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix:
     """
     Extracts the marginal of a square matrix matrix for blocks of size block_dim for the provided select_indices (boolean array). The  
     The dimension of the matrix needs to match the sie of select_indices times block_dim.
@@ -110,11 +110,11 @@ def permutation_matrix(perm_map: np.ndarray, block_dim: int = 1) -> np.ndarray:
 ############################################################################################
 
 def matrix_marginal_assignment(
-    matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix, 
+    matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix, 
     select_names: List[str],
     names: List[str],
     block_dim: int = 1
-) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix:
+) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix:
     select_indices = select_names2indices(select_names,names)
     return matrix_marginal(matrix,select_indices,block_dim=block_dim)
 
@@ -169,10 +169,10 @@ def _blockmarginal_select_indices(
     return select_indices 
 
 def matrix_blockmarginal(
-    matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix, 
+    matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix, 
     block_size: int,
     block_index_list: np.ndarray | List[int]
-) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix:
+) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix:
     """
     Splits the matrix into blocks of size block_size and retains within each block only the components specified in block_index_list
     """ 
@@ -207,18 +207,18 @@ def vector_blockmarginal(
 ############################################################################################
 
 def matrix_rotmarginal(
-    matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix, 
+    matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix, 
     rotation_first: bool = True
-) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix:
+) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix:
     if rotation_first:
         return matrix_blockmarginal(matrix,block_size=6,block_index_list=[0,1,2])
     else:
         return matrix_blockmarginal(matrix,block_size=6,block_index_list=[3,4,5])
     
 def matrix_transmarginal(
-    matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix, 
+    matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix, 
     rotation_first: bool = True
-) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.spmatrix | sp.sparse.coo_matrix:
+) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix:
     if rotation_first:
         return matrix_blockmarginal(matrix,block_size=6,block_index_list=[3,4,5])
     else:

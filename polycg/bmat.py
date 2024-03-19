@@ -3,6 +3,8 @@ import numpy as np
 import scipy as sp
 import sys
 from typing import List, Tuple, Callable, Any, Dict
+from scipy.sparse import lil_matrix, csc_matrix
+# from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix, bsr_matrix, lil_matrix
 
 # DOES NOT SUPPORT NEGATIVE INDEXING TO AS COUNTED BACKWARDS FROM THE END
 # TODO: For periodic boundary condition implement averaging in all directions.
@@ -152,9 +154,6 @@ class BlockOverlapMatrix:
         y1 = ids[1].start
         y2 = ids[1].stop
 
-        # print(x1,x2)
-        # print(y1,y2)
-
         if x1 == None:
             x1 = self.xlo
         if x2 == None:
@@ -295,7 +294,33 @@ class BlockOverlapMatrix:
             block.mat *= B
         return self
     
+    #######################################################################################
 
+    def to_sparse(self):
+        sprs = lil_matrix(self.shape)
+        for block in self.matblocks:
+            sprs[block.x1:block.x2,block.y1:block.y2] = self[block.x1:block.x2,block.y1:block.y2]
+        return sprs.tocsc()
+    
+    ###################################################################################
+    
+    def invert(self) -> BlockOverlapMatrix:
+        invbmat = BlockOverlapMatrix(
+            self.ndims,
+            average=self.average,
+            xlo=self.xlo,xhi=self.xhi,
+            ylo=self.ylo,yhi=self.yhi,
+            periodic=self.periodic,
+            fixed_size=self.fixed_size,
+            check_bounds=self.check_bounds,
+            check_bounds_on_read=self.check_bounds_on_read
+        )
+        for i,block in enumerate(self.matblocks):
+            print(f'Inverting block {i+1}/{len(self.matblocks)}')
+            invblock = np.linalg.inv(block.mat)
+            invbmat.add_block(invblock,block.x1,block.x2,block.y1,block.y2)
+        return invbmat
+    
 #######################################################################################
 #######################################################################################
 #######################################################################################
@@ -441,61 +466,3 @@ class BOMat:
         if sx1 < b2:
             shifts += [baseshift]
         return shifts
-
-
-if __name__ == "__main__":
-    m1 = np.ones((4, 4))
-    m2 = np.ones((4, 4)) * 0
-    m3 = np.ones((4, 4)) * -1
-
-    np.set_printoptions(linewidth=300, precision=4)
-
-    block1 = BOMat(m1, 0, 4)
-    block2 = BOMat(m2, 2, 6)
-
-    bom = BlockOverlapMatrix(
-        3, average=True, periodic=True, xlo=0, xhi=32, ylo=0, yhi=32, fixed_size=True
-    )
-
-    bom.add_block(m1, 0, 4)
-    # print(bom[-2:10, -2:10])
-    # print(bom.to_array())
-
-    bom.add_block(m2, 2, 6)
-    # print(bom[-2:10, -2:10])
-    # print(bom.to_array())
-
-    bom.add_block(m3, 5, 9)
-
-    # print(bom.to_array())
-    # print(bom[:16,:16])
-    # sys.exit()
-
-    for i in range(1, 2):
-        bom.add_block(m1, 0 + i * 8, 4 + i * 8)
-        bom.add_block(m2, 2 + i * 8, 6 + i * 8)
-        bom.add_block(m3, 5 + i * 8, 9 + i * 8)
-
-    bom[3:12, 3:12] = 6
-    # bom.add_block(m2,8,12)
-
-    print(f"num_blocks = {len(bom.matblocks)}")
-
-    # print(bom[-2:10, -2:10])
-    print("to array")
-    print(bom.to_array())
-    print("400")
-    print(bom[:16, :16])
-
-
-
-    # bom.add_block(m1, -2, 2)
-    # print(bom[0:12, 0:12])
-    # print(bom.to_array())
-
-    # bom[5:10, 5:10] = np.ones((5,) * 2) * 2
-    # print(bom[-2:10, -2:10])
-    # print(bom.to_array())
-
-    # bom.add_block(m3,-4,0)
-    # print(bom.to_array())
