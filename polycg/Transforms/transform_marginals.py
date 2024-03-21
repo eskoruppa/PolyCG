@@ -3,7 +3,7 @@ import scipy as sp
 from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix
 from scipy import sparse
 from typing import List, Tuple, Callable, Any, Dict, Optional
-from .SO3 import so3
+from ..SO3 import so3
 
 
 def matrix_marginal(
@@ -13,7 +13,7 @@ def matrix_marginal(
 ) -> np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix:
     """
     Extracts the marginal of a square matrix matrix for blocks of size block_dim for the provided select_indices (boolean array). The  
-    The dimension of the matrix needs to match the sie of select_indices times block_dim.
+    The dimension of the matrix needs to match the size of select_indices times block_dim.
     """
     if matrix.shape[0] != matrix.shape[1]:
         raise ValueError(f'Provided matrix is not a square matrix. Has shape {matrix.shape}.')
@@ -26,7 +26,8 @@ def matrix_marginal(
         if block_dim*len(select_indices) != len(matrix):
             raise ValueError(f'Size of matrix ({matrix.size}) is incompatible with length of select_indices ({len(select_indices)}) for specified block dimension ({block_dim}).')
         CB       = permutation_matrix(perm_map, block_dim=block_dim)
-        Mro = np.matmul(CB, np.matmul(matrix, CB.T))
+        Mro = CB @ matrix @ CB.T
+        # Mro = np.matmul(CB, np.matmul(matrix, CB.T))
         # select partial matrices
         NA = block_dim * np.sum(select_indices)
         A = Mro[:NA, :NA]
@@ -34,7 +35,8 @@ def matrix_marginal(
         B = Mro[:NA, NA:]
         C = Mro[NA:, :NA]
         # calculate Schur complement
-        MA = A - np.dot(B, np.dot(np.linalg.inv(D), C)) 
+        # MA = A - np.dot(B, np.dot(np.linalg.inv(D), C)) 
+        MA = A - B @ np.linalg.inv(D) @ C 
     else:
         rows = list()
         cols = list()
@@ -45,17 +47,20 @@ def matrix_marginal(
                 cols.append(block_dim * j + d)
                 vals.append(1)
         CB = coo_matrix((vals, (rows, cols)), dtype=float, shape=matrix.shape)
-        Mro_coo = CB.dot(matrix.dot(CB.transpose()))
+        # Mro_coo = CB.dot(matrix.dot(CB.transpose()))
+        Mro_coo = CB @ matrix @ CB.transpose()
         Mro = Mro_coo.tocsc()
         # select partial matrices
-        nr, nc = Mro.shape
+        # nr, nc = Mro.shape
         NA = block_dim * np.sum(select_indices)
         A = Mro[:NA, :NA]
         D = Mro[NA:, NA:]
         B = Mro[:NA, NA:]
         C = Mro[NA:, :NA]
+                
         # calculate Schur complement
-        MA = A - B.dot(sparse.linalg.spsolve(D, C))
+        # MA = A - B.dot(sparse.linalg.spsolve(D, C))
+        MA = A - B @ sparse.linalg.spsolve(D, C)
     return MA
 
 def vector_marginal(

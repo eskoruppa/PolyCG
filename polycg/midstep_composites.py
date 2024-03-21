@@ -3,8 +3,8 @@ import numpy as np
 from typing import List, Tuple, Callable, Any, Dict
 
 from .SO3 import so3
-from .transform_SO3 import euler2rotmat_so3
-from .transform_marginals import send_to_back_permutation
+from .Transforms.transform_SO3 import euler2rotmat_so3
+from .Transforms.transform_marginals import send_to_back_permutation
 
 def nucleosome_free_energy(
     groundstate: np.ndarray,
@@ -52,7 +52,7 @@ def nucleosome_free_energy(
     const_1 = 0.5 * C.T @ MC @ C
     
     MMTC = MM.T @ C
-    const_2 = -0.5 MMTC.T @ MFi @ MMTC
+    const_2 = -0.5 * MMTC.T @ MFi @ MMTC
     
     
     
@@ -60,7 +60,7 @@ def nucleosome_free_energy(
     
     
     
-    stiffmat_constrain = 
+    # stiffmat_constrain = 
     
     
     

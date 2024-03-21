@@ -357,6 +357,9 @@ class BOMat:
         yrge: int = 0,
         weight: int = 1,
     ):
+        if sp.sparse.issparse(mat):
+            mat = mat.toarray()
+        
         self.image = image
         if copy:
             self.mat = np.copy(mat)

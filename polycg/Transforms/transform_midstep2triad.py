@@ -1,8 +1,8 @@
 import numpy as np
 from typing import List, Tuple, Callable, Any, Dict
 
-from .SO3 import so3
-from .pyConDec.pycondec import cond_jit
+from ..SO3 import so3
+from ..pyConDec.pycondec import cond_jit
 
 
 ##########################################################################################################

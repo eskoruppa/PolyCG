@@ -1,6 +1,6 @@
 import numpy as np
 from typing import List, Tuple, Callable, Any, Dict
-from .SO3 import so3
+from ..SO3 import so3
 from .transform_statevec import statevec2vecs
 from .transform_SE3 import euler2rotmat, rotmat2euler, invert
 
@@ -56,22 +56,11 @@ from .transform_SE3 import euler2rotmat, rotmat2euler, invert
 #     inverse_gs   = invert(rotmats_gs)
     
 #     if translations_included:
-        
-    
-        
-    
-    
-    
-    
-    
     
     
 ##########################################################################################################
 ########## Linear transformations between algebra and group definition of fluctuations ###################
 ##########################################################################################################
-
-
-
 
 def algebra2group_lintrans(
     groundstate_algebra: np.ndarray, 
@@ -240,8 +229,6 @@ def group2algebra_lintrans(
                 HX_inv[tfr:tto,tfr:tto] = S
                 
     return HX_inv
-
-
 
 
 ##########################################################################################################

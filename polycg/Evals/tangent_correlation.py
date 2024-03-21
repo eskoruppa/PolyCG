@@ -13,13 +13,10 @@ class TangentCorr:
         if disc_len is None: 
             self._disc_lens = np.zeros(2)
         self._tc = np.zeros((mmax,2))
-        
-        
+    
     def add_conf(self, pos: np.ndarray) -> None:
-        
         if len(pos.shape) not in [2,3]:
             raise ValueError(f'Position matrix should consist of 2 or 3 dimensions, corresponding to a single and multiple snapshots, respectively.')
-        
         tans = get_tangents(pos,normalized=False)
         if self._disc_len is None:
             disc_len = mean_vector_length(tans)
@@ -31,14 +28,23 @@ class TangentCorr:
                 # single conf
                 self._disc_lens[0] += disc_len
                 self._disc_lens[1] += 1
-        utans = normalize(tans)
+        
+        self.add_tans(tans,normalized=False)
+                
+        
+    def add_tans(self, tans: np.ndarray, normalized: bool = False) -> None:
+        
+        if normalized:
+            utans = np.copy(tans)
+        else:
+            utans = normalize(tans)
         
         if self.mmax >= tans.shape[-2]-1:
             mmax = tans.shape[-2]-1
         else:
             mmax = self.mmax
             
-        if len(pos.shape) == 3:
+        if len(tans.shape) == 3:
             self._tc = _tc_iter_multi(self._tc,utans,mmax)
             # for s in range(len(utans)):
             #     for i in range(len(utans[0])-1):

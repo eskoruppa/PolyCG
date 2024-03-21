@@ -8,20 +8,21 @@ from matplotlib import pyplot as plt
 from typing import List, Tuple, Callable, Any, Dict
 from .cgnaplus import cgnaplus_bps_params
 
-from .transform_SE3 import *
-from .transform_cayley2euler import *
-from .transform_marginals import *
-from .transform_statevec import *
-from .transform_algebra2group import *
+from .Transforms.transform_SE3 import *
+from .Transforms.transform_cayley2euler import *
+from .Transforms.transform_marginals import *
+from .Transforms.transform_statevec import *
+from .Transforms.transform_algebra2group import *
 from .composites import *
 from .Evals.tangent_correlation import TangentCorr
-from .aux import load_sequence
+from .Aux.aux import load_sequence
 from .partials import partial_stiff
+from .cg import coarse_grain
 
 from .pyConDec.pycondec import cond_jit
 
 
-def sample_lb(gs: np.ndarray, stiff: Any, num_confs: int, mmax: int, cov: Any = None) -> np.ndarray:
+def sample_lb(gs: np.ndarray, stiff: Any, num_confs: int, mmax: int, disc_len: float, lbfn: str, cov: Any = None) -> np.ndarray:
         
     if cov is None:
         if sp.sparse.isspmatrix(stiff):
@@ -29,7 +30,7 @@ def sample_lb(gs: np.ndarray, stiff: Any, num_confs: int, mmax: int, cov: Any = 
         else:
             cov = np.linalg.inv(stiff)
     
-    nbatch = 10
+    nbatch = 20
     batches = num_confs // nbatch
     batchnums = [nbatch for i in range(batches)]
     if num_confs % nbatch != 0:
@@ -39,11 +40,10 @@ def sample_lb(gs: np.ndarray, stiff: Any, num_confs: int, mmax: int, cov: Any = 
     nbp = len(gs)+1
     Ss = euler2rotmat(gs)
 
-    tancor = TangentCorr(mmax)
+    tancor = TangentCorr(mmax,disc_len=disc_len)
 
     for b,num in enumerate(batchnums):
         print(f'batch {b+1}/{len(batchnums)}')
-        
         
         dX = np.random.multivariate_normal(np.zeros(cov.shape[0]), cov.toarray(), num)
         dX = statevec2vecs(dX,vdim=6)
@@ -52,7 +52,8 @@ def sample_lb(gs: np.ndarray, stiff: Any, num_confs: int, mmax: int, cov: Any = 
         Ds = e2r(dX)
         confs = gen_conf(Ss,Ds)
      
-        tancor.add_conf(confs[:,:,:3,3])
+        # tancor.add_conf(confs[:,:,:3,3])
+        tancor.add_tans(confs[:,:,:3,2],normalized=True)
     
         lbdata = tancor.lb
         iter = mmax // 5
@@ -60,11 +61,11 @@ def sample_lb(gs: np.ndarray, stiff: Any, num_confs: int, mmax: int, cov: Any = 
             iter = 1
         print(tancor.disc_len)
         print(lbdata[:,::iter])
+        lbdata = tancor.lb  
+        np.save(lbfn+'_lb',lbdata)
     
-    
-    lbfn = 'Data/JanSeq/Lipfert_2kb.lb'
     lbdata = tancor.lb  
-    np.save(lbfn,lbdata)
+    np.save(lbfn+'_lb',lbdata)
 
             
 @cond_jit
@@ -102,13 +103,21 @@ if __name__ == "__main__":
     # gs    = np.load(fn_gs)
     
     mmax = 160
+    composite_steps = 10
     
-    N        = 10000
+    disc_len = 0.34
+    
+    N        = 1000000
     fn_seq = 'Data/JanSeq/Lipfert_2kb'
-    seq = load_sequence(fn_seq)
+    lbfn   = 'Data/JanSeq/Sample/Lipfert_1kb'
     closed = False
     
-    seq = seq[:201]
+    seq = load_sequence(fn_seq)
+    # seq = seq[:1001]
+    
+    outdir =  os.path.dirname(lbfn)
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
     
     method = cgnaplus_bps_params
     stiffgen_args = {
@@ -137,7 +146,13 @@ if __name__ == "__main__":
     gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=closed,ndims=6)
     # gs,stiff = cgnaplus_bps_params(seq,translations_in_nm=True,euler_definition=True,group_split=True)
     
-    cov = stiff.invert().to_sparse()
-    stiff = stiff.to_sparse()
-    
-    sample_lb(gs,stiff,N,mmax,cov=cov)
+    lbfn += f'_cg{composite_steps}'
+    if composite_steps > 1:
+        gs,stiff = coarse_grain(gs,stiff,composite_steps)
+        mmax = mmax // composite_steps
+        cov = sp.sparse.linalg.inv(stiff)
+        disc_len = disc_len * composite_steps
+    else:
+        cov = stiff.invert().to_sparse()
+        stiff = stiff.to_sparse()
+    sample_lb(gs,stiff,N,mmax,disc_len,lbfn,cov=cov)

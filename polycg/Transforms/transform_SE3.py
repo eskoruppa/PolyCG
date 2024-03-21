@@ -1,8 +1,8 @@
 import numpy as np
 from typing import List, Tuple, Callable, Any, Dict
 
-from .SO3 import so3
-from .pyConDec.pycondec import cond_jit
+from ..SO3 import so3
+from ..pyConDec.pycondec import cond_jit
 
 
 ##########################################################################################################
@@ -88,6 +88,8 @@ def euler2rotmat_se3(eulers: np.ndarray, rotation_first: bool = True) -> np.ndar
     """
     # if eulers.shape[-1] != 6:
     #     raise ValueError(f"Expected set of 6-vectors. Instead received shape {eulers.shape}")
+    if eulers.shape == (6,):
+        return so3.se3_euler2rotmat(eulers,rotation_first=rotation_first)
     
     rotmats = np.zeros(tuple(list(eulers.shape)[:-1]) + (4,4))
     if len(eulers.shape) > 2:
@@ -108,6 +110,9 @@ def rotmat2euler_se3(rotmats: np.ndarray, rotation_first: bool = True) -> np.nda
     Returns:
         np.ndarray: Collection of euler vectrs (...,N,3)
     """
+    if rotmats.shape == (4,4):
+        return so3.se3_rotmat2euler(rotmats,rotation_first=rotation_first)
+    
     eulers = np.zeros(tuple(list(rotmats.shape)[:-2])+(6,))
     if len(rotmats.shape) > 3:
         for i in range(len(rotmats)):
@@ -134,6 +139,8 @@ def cayley2rotmat_se3(cayleys: np.ndarray, rotation_first: bool = True) -> np.nd
     """
     # if cayleys.shape[-1] != 3:
     #     raise ValueError(f"Expected set of 3-vectors. Instead received shape {cayleys.shape}")
+    if cayleys.shape == (6,):
+        return so3.se3_cayley2rotmat(cayleys,rotation_first=rotation_first)
     
     rotmats = np.zeros(tuple(list(cayleys.shape)[:-1]) + (4,4))
     if len(cayleys.shape) > 2:
@@ -154,6 +161,9 @@ def rotmat2cayley_se3(rotmats: np.ndarray, rotation_first: bool = True) -> np.nd
     Returns:
         np.ndarray: Collection of euler vectors (...,N,3)
     """
+    if rotmats.shape == (4,4):
+        return so3.se3_rotmat2cayley(rotmats,rotation_first=rotation_first)
+    
     cayleys = np.zeros(tuple(list(rotmats.shape)[:-2])+(6,))
     if len(rotmats.shape) > 3:
         for i in range(len(rotmats)):

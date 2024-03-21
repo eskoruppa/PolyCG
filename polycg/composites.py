@@ -3,31 +3,43 @@ import numpy as np
 from typing import List, Tuple, Callable, Any, Dict
 
 from .SO3 import so3
-from .transform_SO3 import euler2rotmat_so3
+from .Transforms.transform_SO3 import euler2rotmat_so3, rotmat2euler_so3
+from .Transforms.transform_SE3 import euler2rotmat_se3, rotmat2euler_se3
+
+
+def composite_groundstate(
+    groundstate: np.ndarray
+) -> np.ndarray:
+    if len(groundstate[0]) == 3:
+        # rotations only
+        smats = euler2rotmat_so3(groundstate)
+        saccu = np.eye(3)
+        for smat in smats:
+            saccu = saccu @ smat
+        return so3.rotmat2euler(saccu)
+        
+    elif len(groundstate[0]) == 6:
+        # rotations and translations
+        smats = euler2rotmat_se3(groundstate)
+        saccu = np.eye(4)
+        for smat in smats:
+            saccu = saccu @ smat
+        return rotmat2euler_se3(saccu)
+    else:
+        raise ValueError(f'Invalid dimension of groundstate vectors {len(groundstate[0])}.')
 
 
 def composite_matrix(
     groundstate: np.ndarray,
     substitute_block: int = -1
 ) -> np.ndarray:
+    
     comp_block = composite_block(groundstate)
-    comp_block = test_combblock(groundstate)
-    # test_comb = test_combblock(groundstate)
-    # test_comp = test_compblock(groundstate)
     
-    # alt_block = alterate_summation(groundstate)
-        
-    # print('\n\n')
-    # print('COMP')
-    # print(groundstate)
-    # print(comp_block)
-    # print('\n\n')
-    # print(alt_block)
-    # print('\n\n')
-    # print(comp_block-alt_block)
-    # print('\n\n')
-    
-    # sys.exit()
+    # # TESTING HERE
+    # test_comp_block = test_combblock(groundstate) 
+    # print(np.sum(comp_block-test_comp_block))
+    # raise ValueError('Stop here comp')
     
     ndims = len(comp_block)
     N = len(groundstate)
@@ -42,15 +54,13 @@ def inv_composite_matrix(
     groundstate: np.ndarray,
     substitute_block: int = -1
 ) -> np.ndarray:
-    # comp_block = composite_block(groundstate)
-    # TESTING HERE
-    comp_block = test_combblock(groundstate)
-    #######################
-    # print('\n\n')
-    # print('INV')
-    # print(groundstate)
-    # print(comp_block)
-    # print('\n\n')
+    
+    comp_block = composite_block(groundstate)
+    
+    # # TESTING HERE
+    # test_comp_block = test_combblock(groundstate)
+    # print(np.sum(comp_block-test_comp_block))
+    # raise ValueError('Stop here icomp')
     
     ndims = len(comp_block)
     N = len(groundstate)
@@ -112,12 +122,6 @@ def composite_block(
         comp_block[3:,k*ndims:k*ndims+3] = coup 
         comp_block[3:,k*ndims+3:k*ndims+6] = Saccus[k+1].T    
     
-    # print('\n\n')
-    # print(comp_block)
-    # print('\n\n')
-    # print(test_compblock(groundstate))
-    # print(comp_block - test_compblock(groundstate))
-    # print(np.abs(np.sum(comp_block - test_compblock(groundstate))))
     return comp_block
     
     
@@ -178,7 +182,6 @@ def alterate_summation(groundstate: np.ndarray) -> np.ndarray:
     return comp_block
 
 
-        
 def get_Saccu(rots: np.ndarray,i,j) -> np.ndarray:
     saccu = np.eye(3)
     for k in range(i,j+1):

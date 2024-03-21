@@ -2,7 +2,8 @@ from __future__ import annotations
 import sys
 import numpy as np
 from typing import Tuple, List, Callable, Any, Dict
-from .bmat import BlockOverlapMatrix
+from .Aux.bmat import BlockOverlapMatrix
+from .Transforms.transform_statevec import statevec2vecs
 
 PARTIALS_MIN_BLOCK = 4
 
@@ -18,7 +19,7 @@ def partial_stiff(
     overlap_size: int,
     tail_size: int,
     closed: bool = False,
-    ndims: int = 6,
+    ndims: int = 6
 ) -> Tuple[np.ndarray, BlockOverlapMatrix]:
     nbps = len(seq)
     if not closed:
@@ -37,7 +38,7 @@ def partial_stiff(
         )
         
     if closed:
-        return _partial_stiff_closed(
+        gs,stiff = _partial_stiff_closed(
             seq,
             stiffgen_method,
             stiffgen_args,
@@ -46,16 +47,20 @@ def partial_stiff(
             tail_size,
             ndims=ndims,
         )
-
-    return _partial_stiff_linear(
-        seq,
-        stiffgen_method,
-        stiffgen_args,
-        block_size,
-        overlap_size,
-        tail_size,
-        ndims=ndims,
-    )
+    else:
+        gs, stiff = _partial_stiff_linear(
+            seq,
+            stiffgen_method,
+            stiffgen_args,
+            block_size,
+            overlap_size,
+            tail_size,
+            ndims=ndims,
+        )
+    if isinstance(stiff,BlockOverlapMatrix):
+        print('convert to sparse')
+        stiff = stiff.to_sparse()
+    return gs, stiff
 
 
 #######################################################################################
@@ -69,7 +74,7 @@ def _partial_stiff_linear(
     block_size: int,
     overlap_size: int,
     tail_size: int,
-    ndims: int = 3,
+    ndims: int = 6,
 ) -> Tuple[np.ndarray, BlockOverlapMatrix]:
     Nseq = len(seq)
     N = Nseq - 1
@@ -125,6 +130,7 @@ def _partial_stiff_linear(
             gs[mid1:mid2] += pgs[: mid2 - mid1]
             cnts[mid1:mid2] += 1
     gs /= cnts
+    gs = statevec2vecs(gs,ndims)
     return gs, stiff
 
 
@@ -197,6 +203,7 @@ def _partial_stiff_closed(
             gs[mid1:mid2] += pgs[: mid2 - mid1]
             cnts[mid1:mid2] += 1
     gs /= cnts
+    gs = statevec2vecs(gs,ndims)
     return gs, stiff
 
 

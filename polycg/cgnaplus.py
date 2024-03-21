@@ -8,16 +8,16 @@ import argparse
 from typing import List, Tuple, Callable, Any, Dict
 from .cgNA_plus.modules.cgDNAUtils import constructSeqParms
 
-from .transform_marginals import vector_marginal, matrix_marginal, unwrap_wildtypes, matrix_marginal_assignment, vector_marginal_assignment
-from .transform_units import conversion
-from .transform_statevec import statevec2vecs, vecs2statevec
+from .Transforms.transform_marginals import vector_marginal, matrix_marginal, unwrap_wildtypes, matrix_marginal_assignment, vector_marginal_assignment
+from .Transforms.transform_units import conversion
+from .Transforms.transform_statevec import statevec2vecs, vecs2statevec
 
-from .transform_cayley2euler import cayley2euler, cayley2euler_stiffmat
-from .transform_algebra2group import algebra2group_stiffmat
-from .transform_midstep2triad import midstep2triad
+from .Transforms.transform_cayley2euler import cayley2euler, cayley2euler_stiffmat
+from .Transforms.transform_algebra2group import algebra2group_stiffmat
+from .Transforms.transform_midstep2triad import midstep2triad
 
 from .partials import partial_stiff
-from .aux import load_sequence
+from .Aux.aux import load_sequence
 
 CURVES_PLUS_DATASET_NAME = "cgDNA+_Curves_BSTJ_10mus_FS"
 
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     # parser.add_argument('-out', '--out_filename', type=str, required=True) 
     parser.add_argument('-nm',    '--translations_in_nm', type=bool, default=True)
     parser.add_argument('-euler', '--euler_definition', type=bool, default=True)
-    parser.add_argument('-group', '--group_split', type=bool, default=False)
+    parser.add_argument('-group', '--group_split', type=bool, default=True)
     parser.add_argument('-fac5',  '--keep_factor_five', type=bool, default=False)
     parser.add_argument('-set',   '--parameter_set_name', type=str, default='curves_plus')
     
@@ -144,6 +144,10 @@ if __name__ == '__main__':
 
     fn_gs = basefn + '_gs.npy'
     fn_stiff = basefn + '_stiff.npz'
-    spstiff = stiff.to_sparse()
+    
+    if sp.sparse.issparse:
+        spstiff = stiff
+    else:
+        spstiff = stiff.to_sparse()
     sparse.save_npz(fn_stiff,spstiff)
     np.save(fn_gs,gs)
