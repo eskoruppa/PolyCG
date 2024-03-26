@@ -103,6 +103,8 @@ def test_composite(seq: str = 'ACGATC',num_confs = 10000):
     idfrom = 30
     idto   = 40
     
+    print(seq[idfrom:idto+1])
+    
     nsteps = idto - idfrom
     
     group_gs = group_gs[idfrom:idto]
@@ -148,6 +150,11 @@ def test_composite(seq: str = 'ACGATC',num_confs = 10000):
         
     Tv = composite_matrix(switched_gs)
     Ti = inv_composite_matrix(switched_gs)
+    
+    print(np.linalg.det(Tv))
+    print(np.linalg.det(Ti))
+    
+    sys.exit()
     
     # print(np.sum(np.linalg.inv(Tv)-Ti))
     # sys.exit()
@@ -234,6 +241,10 @@ def test_composite(seq: str = 'ACGATC',num_confs = 10000):
     print(sp.stats.kurtosis(sums[:,5]))    
     
     
+    path = 'Data/Hists'
+    np.save(path+'/composite_sampled', sums)
+    np.save(path+'/composite_M', Msum)
+    
     
     fig = plt.figure(figsize=(17./2.54,7./2.54))
     ax1 = fig.add_subplot(231)
@@ -255,6 +266,8 @@ def test_composite(seq: str = 'ACGATC',num_confs = 10000):
     for i,ax in enumerate(axes):
         ax.hist(sums[:,i],bins=100,density=True)
         
+        print(f'<{labels[i]}> = {np.mean(sums[:,i])}')
+        
         var = 1./marginal_schur_complement(Msum,retained_ids=[i])[0]
         std = np.sqrt(var)
         rnge = std*4
@@ -269,14 +282,17 @@ def test_composite(seq: str = 'ACGATC',num_confs = 10000):
         for axis in ['top','bottom','left','right']:
             ax.spines[axis].set_linewidth(0.7)
         
+        
     # ax6.set_xlim([-2.1,2.1])  
     
-    plt.subplots_adjust(left=0.06,
-                    right=0.98,
-                    bottom=0.08,
-                    top=0.99,
-                    wspace=0.2,
-                    hspace=0.22)
+    plt.subplots_adjust(
+        left=0.06,
+        right=0.98,
+        bottom=0.08,
+        top=0.99,
+        wspace=0.2,
+        hspace=0.22
+        )
     
     plt.savefig(f'Figs/Distributions.png',dpi=300,facecolor='white')
     plt.close()
@@ -473,8 +489,19 @@ def covmat(vecs):
 
 if __name__ == "__main__":
     
-    seq = 'ACGATCGATCGGAATCCGATCATACTGGC'*5
+    nbp = 200
+    seq = "".join(["ATCG"[np.random.randint(4)] for i in range(nbp)])
+    
+    seq = 'CGCGGACTGCGCGCCTCAAGTCTGTCCGTATTCTACAGCAGCACTGCTGGAATCACCTTGGGCTATATTGTTGCTACGCTACTGCTCTCCGGGCCAACAAAGACGCGAAATAACTCTCAATATATAAGACGCCTCCTACCCCACTTAGATCTGTACGGCAGTTGATGGGGGGGTGCAGACTACCAGAAAACTGAGAAAGT'
+    # seq = 'GGCTTCGCTGACTACACCTGGAGATGTGGTTTTCGTCCACGATTCTGCTTCTGGTCAATCAAGATGTGGCCGTATCTAGATGGCTGCATGCGGGCAGCCAGGGCTGCGATTTTTGTATCCGTACTGCTATAGTATGCGCGTTTTTTCACTCGCGAGGACCCTCCGTCGCTGGACGGGTTGGAGCCACTAAGTTCGGGATG'
+    
+    # seq = 'AT'*100
+    
+    print(seq)
+    # seq = 'ACGATCGATCGGAATCCGATCATACTGGC'*5
+    # seq = 'ACGATCGATCGGAATCCGATCATACTGGC'*5
     num_confs = 5000000
+    # num_confs = 100000
      
     print(f'len = {len(seq)}')
     

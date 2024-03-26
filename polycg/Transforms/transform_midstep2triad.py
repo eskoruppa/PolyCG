@@ -9,7 +9,12 @@ from ..pyConDec.pycondec import cond_jit
 ############# Transformation between midsteptriad and triad definitions of translations ##################
 ##########################################################################################################
 
-def midstep2triad(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first: bool = True):
+def midstep2triad(
+    vecs: np.ndarray, 
+    rotation_map: str = 'euler', 
+    rotation_first: bool = True
+    ) -> np.ndarray:
+    
     if vecs.shape[-1] != 6:
         raise ValueError(f"Expected set of 6-vectors. Instead received shape {vecs.shape}")
     
@@ -57,7 +62,12 @@ def midstep2triad(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first:
         return nvecs
 
 
-def triad2midstep(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first: bool = True):
+def triad2midstep(
+    vecs: np.ndarray, 
+    rotation_map: str = 'euler', 
+    rotation_first: bool = True
+    ) -> np.ndarray:
+    
     if vecs.shape[-1] != 6:
         raise ValueError(f"Expected set of 6-vectors. Instead received shape {vecs.shape}")
     
@@ -104,11 +114,14 @@ def triad2midstep(vecs: np.ndarray, rotation_map: str = 'euler', rotation_first:
             nvecs[i,transslice] = sqrt_rotmat.T @ vtrans
         return nvecs
     
+    
 
+# The following methods are depricated 
 ##########################################################################################################
 ###### Linearization of transformation between midsteptriad and triad definitions of translations ########
 ##########################################################################################################
 
+from warnings import warn
 
 def midstep2triad_lintrans(
     groundstate_euler: np.ndarray, 
@@ -118,6 +131,7 @@ def midstep2triad_lintrans(
     ) -> np.ndarray:
     """Linearization of transformation from midsteptriad- to triad-definitions of translations. The rotational component needs to be expressed in euler coordinates.
     """
+    warn('This method is deprecated and possibly does generate unexpected results.', DeprecationWarning, stacklevel=2)
     
     if split_fluctuations not in ['vector','matrix', 'so3', 'SO3']:
         raise ValueError(f'Invalid split_fluctutations method "{split_fluctuations}". Should be either "vector" or "so3" for splitting in so3 or "matrix" or "SO3" for splitting in SO3.')
@@ -148,13 +162,10 @@ def midstep2triad_lintrans(
         zeta0_hat    = so3.hat_map(zeta0)
         Hm = np.eye(6)
         Hm[3:,3:] = sqrt_rotmat
-        
-        # print('warning no cross coupling in midstep2triad')
         crosscoup = 0.5*sqrt_rotmat @ zeta0_hat.T
         # if split_fluctuations == 'so3':
         #     crosscoup = crosscoup @ so3.splittransform_algebra2group(Omega0)  
         Hm[3:,:3] = crosscoup
-        
         Hm[:3,:3] = so3.splittransform_group2algebra(Omega0)
         return Hm
 
@@ -183,6 +194,7 @@ def triad2midstep_lintrans(
     ) -> np.ndarray:
     """Linearization of transformation from midsteptriad- to triad-definitions of translations. The rotational component needs to be expressed in euler coordinates.
     """
+    warn('This method is deprecated and possibly does generate unexpected results.', DeprecationWarning, stacklevel=2)
     
     # if split_fluctuations not in ['vector','matrix', 'so3', 'SO3']:
     #     raise ValueError(f'Invalid split_fluctutations method "{split_fluctuations}". Should be either "vector" or "so3" for splitting in so3 or "matrix" or "SO3" for splitting in SO3.')
@@ -266,6 +278,8 @@ def midstep2triad_stiffmat(
     Returns:
         np.ndarray: Transformed stiffness matrix.
     """ 
+    warn('This method is deprecated and possibly does generate unexpected results.', DeprecationWarning, stacklevel=2)
+    
     Tt2m = triad2midstep_lintrans(
         groundstate_euler,
         rotation_first=rotation_first,
@@ -296,6 +310,8 @@ def triad2midstep_stiffmat(
     Returns:
         np.ndarray: Transformed stiffness matrix.
     """ 
+    warn('This method is deprecated and possibly does generate unexpected results.', DeprecationWarning, stacklevel=2)
+    
     Tm2t = midstep2triad_lintrans(
         groundstate_euler,
         rotation_first=rotation_first,

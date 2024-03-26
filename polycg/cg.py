@@ -325,22 +325,10 @@ def _cg_stiff_partial_linear(
       
     return cgstiff.to_sparse()      
     
-
-
-
+    
+    
 if __name__ == '__main__':
-    
-    Om = np.array([4,5,-1])
-    Om = Om / np.linalg.norm(Om) * np. pi
-    
-    R = so3.euler2rotmat(Om)
-    print(R)
-
-    print(Om)
-    print(so3.rotmat2euler(R))
-    
-    sys.exit()
-    
+        
     from .cgnaplus import cgnaplus_bps_params
     from .Aux.aux import load_sequence
     from .partials import partial_stiff

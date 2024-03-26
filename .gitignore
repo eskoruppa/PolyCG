@@ -30,3 +30,6 @@
 **/SO3/
 **/IOPolyMC/
 **/pyConDec
+
+# sampling methods
+**sample_*.py

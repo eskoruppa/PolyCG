@@ -4,7 +4,7 @@ from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix
 from scipy import sparse
 from typing import List, Tuple, Callable, Any, Dict, Optional
 from ..SO3 import so3
-
+from warnings import warn
 
 def matrix_marginal(
     matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix, 
@@ -264,10 +264,14 @@ def marginal_schur_complement(mat: np.ndarray, retained_ids: List[int]) -> np.nd
     Returns:
         np.ndarray: reduced matrix
     """
+    if sp.sparse.issparse(mat):
+        warn('marginal_schu_complement currently does not support sparse matrices. Matrix converted to dense. For more efficient handling for sparse matrices use matrix_marginal..', DeprecationWarning, stacklevel=2)
+        mat = mat.toarray()
+    
     # calculate permutation matrix
-    P = send_to_back_permutation(len(mat), retained_ids)
+    P = send_to_back_permutation(mat.shape[0], retained_ids)
     # rearrange matrix
-    pmat = so3.dots([P, mat, P.T])
+    pmat = P @ mat @ P.T
     # select partial matrix
     ND = len(retained_ids)
     NA = len(mat) - ND
@@ -278,7 +282,7 @@ def marginal_schur_complement(mat: np.ndarray, retained_ids: List[int]) -> np.nd
     B = pmat[:NA, NA:]
     D = pmat[NA:, NA:]
     # calculate schur complement
-    schur = D - so3.dots([B.T, np.linalg.inv(A), B])
+    schur = D - B.T @ np.linalg.inv(A) @ B
     return schur
 
 
@@ -316,6 +320,8 @@ def send_to_back_permutation(
     Returns:
         np.ndarray: transformation matrix ((dim: NxN))
     """
+    if isinstance(move_back_ids,np.ndarray):
+        move_back_ids = move_back_ids.tolist()
     T = np.zeros((N,) * 2)
     if ordered:
         move_back_ids = sorted(move_back_ids)

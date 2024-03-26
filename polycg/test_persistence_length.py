@@ -109,7 +109,7 @@ if __name__ == "__main__":
     
     N        = 1000000
     fn_seq = 'Data/JanSeq/Lipfert_2kb'
-    lbfn   = 'Data/JanSeq/Sample/Lipfert_1kb'
+    lbfn   = 'Data/JanSeq/Sampled/Lipfert_1kb'
     closed = False
     
     seq = load_sequence(fn_seq)

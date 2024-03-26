@@ -28,6 +28,9 @@ def euler2cayley(eulers: np.ndarray, rotation_first: bool = True) -> np.ndarray:
     else:
         raise ValueError(f"Expected set of 3-vectors or 6-vectors (if translations are included). Instead received shape {eulers.shape}")
 
+    if len(eulers.shape) == 1:
+        return so3.euler2cayley(euler)
+    
     cayleys = np.copy(eulers)
     if len(eulers.shape) > 2:
         for i in range(len(eulers)):
@@ -64,6 +67,9 @@ def cayley2euler(cayleys: np.ndarray, rotation_first: bool = True) -> np.ndarray
         translations_included = True
     else:
         raise ValueError(f"Expected set of 3-vectors or 6-vectors (if translations are included). Instead received shape {eulers.shape}")
+
+    if len(cayleys.shape) == 1:
+        return so3.cayley2euler(cayleys)
 
     eulers = np.copy(cayleys)
     if len(cayleys.shape) > 2:
@@ -105,8 +111,10 @@ def cayley2euler_lintrans(
     else:
         raise ValueError(f"Expected set of 3-vectors or 6-vectors (if translations are included). Instead received shape {groundstate_cayleys.shape}")
 
-    if len(groundstate_cayleys.shape) != 2:
-        raise ValueError(f'Expected array of shape (N,3) or (N,6), encountered {groundstate_cayleys.shape}')
+    if len(groundstate_cayleys.shape) > 2:
+        raise ValueError(f'Unexpected shape of groundstate_cayleys {groundstate_cayleys.shape}')
+    if len(groundstate_cayleys.shape) == 1:
+        groundstate_cayleys = np.array([groundstate_cayleys])
 
     dim = len(groundstate_cayleys)*3 
     if translations_included:
@@ -154,8 +162,10 @@ def euler2cayley_lintrans(
     else:
         raise ValueError(f"Expected set of 3-vectors or 6-vectors (if translations are included). Instead received shape {groundstate_eulers.shape}")
 
-    if len(groundstate_eulers.shape) != 2:
-        raise ValueError(f'Expected array of shape (N,3) or (N,6), encountered {groundstate_eulers.shape}')
+    if len(groundstate_eulers.shape) > 2:
+        raise ValueError(f'Unexpected shape of groundstate_eulers {groundstate_eulers.shape}')
+    if len(groundstate_eulers.shape) == 1:
+        groundstate_eulers = np.array([groundstate_eulers])
 
     dim = len(groundstate_eulers)*3 
     if translations_included:

@@ -9,6 +9,8 @@ from .transform_SE3 import euler2rotmat, rotmat2euler, invert
 ########## (vector) and lie group (matrix) level                                       ###################
 ##########################################################################################################
 
+
+
 # def algebra2group(
 #     algebra_groundstate: np.ndarray,
 #     algebra_dynamic: np.ndarray,
@@ -70,14 +72,23 @@ def algebra2group_lintrans(
     """Linearization of the transformation of dynamic components from algebra (vector) to group (matrix) splitting between static and dynamic parts. Optionally the transformations from midstep triad definition to triad definition of the translational component may also be included. 
 
     Args:
-        groundstate_algebra (np.ndarray): set of groundstate Euler vectors (Nx3 or Nx6) around which the transformation is linearly expanded. If the vectors are 6-vectors translations are assumed to be included
-        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of freedom
-        translation_as_midstep (bool): If True, the translational component is assumed to defined in the midstep triad frame. The translational component of resulting vectors will be defined in the standard SE3 definition assuming that the splitting between static and dynamic compoent occures at the level of the group (SE3): 
-        g=s*d.
-        
-            / R   v \   / S   s \  / D   d \     / SD  Sd+s \
-        g =           =                       = 
-            \ 0   1 /   \ 0   1 /  \ 0   1 /     \ 0     1  /
+        groundstate_algebra (np.ndarray): 
+                set of groundstate Euler vectors (Nx3 or Nx6) around which the transformation is 
+                linearly expanded. If the vectors are 6-vectors translations are assumed to be included
+                
+        rotation_first (bool): 
+                If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational 
+                degrees of freedom
+                
+        translation_as_midstep (bool): 
+                If True, the translational component of the initial state vectors and the groundstate 
+                are assumed to be defined in the midstep triad frame. The translational component of 
+                resulting vectors will be defined in the standard SE3 definition assuming that the 
+                splitting between static and dynamic compoent occures at the level of the group (SE3): 
+                g=s*d.
+                    / R   v \   / S   s \  / D   d \     / SD  Sd+s \
+                g =           =                       = 
+                    \ 0   1 /   \ 0   1 /  \ 0   1 /     \ 0     1  /
                 
     Returns:
         float: Linear transformation matrix that transforms small deviations around the given groundstate
@@ -89,8 +100,10 @@ def algebra2group_lintrans(
     else:
         raise ValueError(f"Expected set of 3-vectors or 6-vectors (if translations are included). Instead received shape {groundstate_algebra.shape}")
 
-    if len(groundstate_algebra.shape) != 2:
-        raise ValueError(f'Expected array of shape (N,3) or (N,6), encountered {groundstate_algebra.shape}')
+    if len(groundstate_algebra.shape) > 2:
+        raise ValueError(f'Unexpected shape of groundstate_algebra {groundstate_algebra.shape}')
+    if len(groundstate_algebra.shape) == 1:
+        groundstate_algebra = np.array([groundstate_algebra])
 
     # define index selection
     if translations_included and rotation_first:
@@ -156,9 +169,18 @@ def group2algebra_lintrans(
     """Linearization of the transformation of dynamic components from group (matrix) to algebra (vector) splitting between static and dynamic parts. Optionally the translational component may be expressed in terms of the midstep triad. 
 
     Args:
-        groundstate_group (np.ndarray): set of groundstate Euler vectors (Nx3 or Nx6) around which the transformation is linearly expanded. If the vectors are 6-vectors translations are assumed to be included
-        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of freedom
-        translation_as_midstep (bool): If True, the translational component of the final state will be expressed in terms of the midstep triad.    
+        groundstate_group (np.ndarray): 
+                set of groundstate Euler vectors (Nx3 or Nx6) around which the transformation is 
+                linearly expanded. If the vectors are 6-vectors translations are assumed to be included
+                
+        rotation_first (bool): 
+                If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational 
+                degrees of freedom
+        
+        translation_as_midstep (bool): 
+                If True, the translational component of the final state will be expressed in terms of 
+                the midstep triad.    
+        
     Returns:
         float: Linear transformation matrix that transforms small deviations around the given groundstate
     """
@@ -169,9 +191,11 @@ def group2algebra_lintrans(
     else:
         raise ValueError(f"Expected set of 3-vectors or 6-vectors (if translations are included). Instead received shape {groundstate_group.shape}")
 
-    if len(groundstate_group.shape) != 2:
-        raise ValueError(f'Expected array of shape (N,3) or (N,6), encountered {groundstate_group.shape}')
-
+    if len(groundstate_group.shape) > 2:
+        raise ValueError(f'Unexpected shape of groundstate_group {groundstate_group.shape}')
+    if len(groundstate_group.shape) == 1:
+        groundstate_group = np.array([groundstate_group])
+        
     # define index selection
     if translations_included and rotation_first:
         rot_from = 0
@@ -243,13 +267,30 @@ def algebra2group_stiffmat(
     rotation_first: bool = True,
     translation_as_midstep: bool = False
     ) -> np.ndarray:
-    """Converts stiffness matrix from algebra-level (vector) splitting between static and dynamic component to group-level (matrix) splitting. Optionally, the transformations from midstep triad definition to triad definition of the translational component may also be included.  
+    """Converts stiffness matrix from algebra-level (vector) splitting between static 
+    and dynamic component to group-level (matrix) splitting. Optionally, the transformations 
+    from midstep triad definition to triad definition of the translational component may 
+    also be included.  
 
     Args:
-        groundstate_algebra (np.ndarray): groundstate expressed in algebra (vector) splitting definition. The rotational component is the same in the algebra and group definition.
-        stiff_algebra (np.ndarray): stiffness matrix expressed in arbitrary units
-        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of freedom
-        translation_as_midstep (bool): If True, the translational component of the final state will be expressed in terms of the midstep triad.    
+        groundstate_algebra (np.ndarray): 
+                groundstate expressed in algebra (vector) splitting definition. The rotational 
+                component is the same in the algebra and group definition.
+        
+        stiff_algebra (np.ndarray): 
+                stiffness matrix expressed in arbitrary units
+        
+        rotation_first (bool): 
+                If the vectors are 6-vectors, the first 3 coordinates are taken to be the 
+                rotational degrees of freedom
+        
+        translation_as_midstep (bool): 
+                If True, the translational component of the initial state stiffness matrix 
+                and the groundstate are assumed to be defined in the midstep triad frame. 
+                The translational component of resulting vectors will be defined in the 
+                standard SE3 definition assuming that the splitting between static and dynamic 
+                compoent occures at the level of the group (SE3): 
+        g=s*d.
 
     Returns:
         np.ndarray: Transformed stiffness matrix.
@@ -301,10 +342,20 @@ def group2algebra_stiffmat(
     definition will assume a midstep triad definition of the translational component. 
 
     Args:
-        groundstate_group (np.ndarray): groundstate expressed in group (matrix) splitting definition. The rotational component is the same in the algebra and group definition.
-        stiff_group (np.ndarray): stiffness matrix expressed in arbitrary units
-        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of freedom
-        translation_as_midstep (bool): If True, the translational component of the final state will be expressed in terms of the midstep triad.    
+        groundstate_group (np.ndarray): 
+                groundstate expressed in group (matrix) splitting definition. The rotational 
+                component is the same in the algebra and group definition.
+                
+        stiff_group (np.ndarray): 
+                stiffness matrix expressed in arbitrary units
+                
+        rotation_first (bool): 
+                If the vectors are 6-vectors, the first 3 coordinates are taken to be the 
+                rotational degrees of freedom
+                
+        translation_as_midstep (bool): 
+                If True, the translational component of the final state will be expressed 
+                in terms of the midstep triad.    
 
     Returns:
         np.ndarray: Transformed stiffness matrix.
@@ -318,4 +369,3 @@ def group2algebra_stiffmat(
     HX = np.linalg.inv(HX_inv)
     stiff_algebra = HX.T @ stiff_group @ HX
     return stiff_algebra
-

@@ -12,6 +12,7 @@ from .Transforms.transform_marginals import *
 from .Transforms.transform_statevec import *
 from .Evals.kullbackleibler import *
 from .Transforms.transform_algebra2group import *
+from .Transforms.transform_midstep2triad import *
 
 from numba import njit
 
@@ -20,37 +21,25 @@ def test_algebra2group(seq: str = 'ACGATC',num_confs = 10000):
     np.set_printoptions(linewidth=250)
     
     # generate stiffness
-    cayley_gs,cayley_stiff = cgnaplus_bps_params(seq,translations_in_nm=False)
+    cayley_gs,cayley_stiff = cgnaplus_bps_params(seq,translations_in_nm=False,euler_definition=False)
     print('stiff generated')
     
-    # t1 = time.time()
-    # # generate stiffness
-    # cayley_gs,cayley_stiff = cgnaplus_bps_params(seq*100)
-
-    # t2 = time.time()
-    # print('stiff generated')
-    # algebra_stiff = cayley2euler_stiffmat(cayley_gs,cayley_stiff,rotation_first=True)
-    # t3 = time.time()
-    # algebra_gs  = cayley2euler(cayley_gs)
-    # t4 = time.time()
-    # group_stiff = algebra2group_stiffmat(algebra_gs,algebra_stiff,rotation_first=True,translation_as_midstep=translation_as_midstep)
-    # t5 = time.time()
-    # print('converted to group')
-    # print(f'dt1 = {t2-t1}')
-    # print(f'dt2 = {t3-t2}')
-    # print(f'dt3 = {t4-t3}')
-    # print(f'dt4 = {t5-t4}')
-    # sys.exit()
     
     translation_as_midstep = True
     
     # convert to eulers
     algebra_gs  = cayley2euler(cayley_gs)
     
-    print('converted gs to euler')
+    print('converted stiff to euler')
     algebra_stiff = cayley2euler_stiffmat(cayley_gs,cayley_stiff,rotation_first=True)
     
-    print('converted stiff to euler')
+    ### CHECK FUNCTION DEFINITION
+    # gs,sti = cgnaplus_bps_params(seq,translations_in_nm=False,group_split=False,euler_definition=True)
+    # print(np.sum(algebra_stiff-sti))
+    # sys.exit()
+    ### CHECKS OUT
+    
+    print('converted gs to euler')
     group_gs = np.copy(algebra_gs)
     
     if translation_as_midstep:
@@ -60,18 +49,18 @@ def test_algebra2group(seq: str = 'ACGATC',num_confs = 10000):
             sqrtS = so3.euler2rotmat(0.5*Phi_0)
             s = sqrtS @ zeta_0
             group_gs[i,3:] = s
-            print(group_gs[i,3:])
-    # sys.exit()
-
+            
     # linear transformations
     HX = algebra2group_lintrans(algebra_gs,rotation_first=True,translation_as_midstep=translation_as_midstep)
     HX_inv = group2algebra_lintrans(group_gs,rotation_first=True,translation_as_midstep=translation_as_midstep)
     
-    print(np.sum(HX @ HX_inv - np.eye(len(HX))))
-    # print(HX[:6,:6])
-    # print(HX_inv[:6,:6])
-    
     group_stiff = algebra2group_stiffmat(algebra_gs,algebra_stiff,rotation_first=True,translation_as_midstep=translation_as_midstep)
+    
+    
+    # # HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # gs,sti = cgnaplus_bps_params(seq,translations_in_nm=False,group_split=True,euler_definition=True)
+    # print(np.sum(group_stiff-sti))
+    # sys.exit()
     
     test_algebra_stiff = group2algebra_stiffmat(group_gs,group_stiff,rotation_first=True,translation_as_midstep=translation_as_midstep)
     print(f'group_stiff transformation test: diff = {np.sum(algebra_stiff-test_algebra_stiff)}')
@@ -95,7 +84,7 @@ def test_algebra2group(seq: str = 'ACGATC',num_confs = 10000):
                 sqrtS = so3.euler2rotmat(0.5*Phi_0)
                 s = sqrtS @ zeta_0
                 algebra_triad[i,j,3:] = s
-    
+                
     print('transform to rotmats')
     gs_rotmats = euler2rotmat(group_gs)
     rotmats = euler2rotmat(algebra_triad)
