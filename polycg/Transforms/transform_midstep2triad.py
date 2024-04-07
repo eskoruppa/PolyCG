@@ -131,7 +131,7 @@ def midstep2triad_lintrans(
     ) -> np.ndarray:
     """Linearization of transformation from midsteptriad- to triad-definitions of translations. The rotational component needs to be expressed in euler coordinates.
     """
-    warn('This method is deprecated and possibly does generate unexpected results.', DeprecationWarning, stacklevel=2)
+    warn('This method is deprecated and possibly generates unexpected results.', DeprecationWarning, stacklevel=2)
     
     if split_fluctuations not in ['vector','matrix', 'so3', 'SO3']:
         raise ValueError(f'Invalid split_fluctutations method "{split_fluctuations}". Should be either "vector" or "so3" for splitting in so3 or "matrix" or "SO3" for splitting in SO3.')
@@ -194,7 +194,7 @@ def triad2midstep_lintrans(
     ) -> np.ndarray:
     """Linearization of transformation from midsteptriad- to triad-definitions of translations. The rotational component needs to be expressed in euler coordinates.
     """
-    warn('This method is deprecated and possibly does generate unexpected results.', DeprecationWarning, stacklevel=2)
+    warn('This method is deprecated and possibly generates unexpected results.', DeprecationWarning, stacklevel=2)
     
     # if split_fluctuations not in ['vector','matrix', 'so3', 'SO3']:
     #     raise ValueError(f'Invalid split_fluctutations method "{split_fluctuations}". Should be either "vector" or "so3" for splitting in so3 or "matrix" or "SO3" for splitting in SO3.')
@@ -278,7 +278,7 @@ def midstep2triad_stiffmat(
     Returns:
         np.ndarray: Transformed stiffness matrix.
     """ 
-    warn('This method is deprecated and possibly does generate unexpected results.', DeprecationWarning, stacklevel=2)
+    warn('This method is deprecated and possibly generates unexpected results.', DeprecationWarning, stacklevel=2)
     
     Tt2m = triad2midstep_lintrans(
         groundstate_euler,
@@ -310,7 +310,7 @@ def triad2midstep_stiffmat(
     Returns:
         np.ndarray: Transformed stiffness matrix.
     """ 
-    warn('This method is deprecated and possibly does generate unexpected results.', DeprecationWarning, stacklevel=2)
+    warn('This method is deprecated and possibly generates unexpected results.', DeprecationWarning, stacklevel=2)
     
     Tm2t = midstep2triad_lintrans(
         groundstate_euler,

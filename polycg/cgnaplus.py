@@ -20,6 +20,7 @@ from .partials import partial_stiff
 from .Aux.aux import load_sequence
 
 CURVES_PLUS_DATASET_NAME = "cgDNA+_Curves_BSTJ_10mus_FS"
+# CURVES_PLUS_DATASET_NAME = "cgDNA+ps1"
 
 def cgnaplus_bps_params(
     sequence: str, 
@@ -136,7 +137,13 @@ if __name__ == '__main__':
     print(f'overlap_size: {overlap_size}')
     print(f'tail_size:    {tail_size}')
 
-    gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=args.closed,ndims=6)
+    if len(seq) - 1 <= overlap_size:
+        gs, stiffar = cgnaplus_bps_params(seq, **stiffgen_args)
+        stiff = sp.sparse.lil_matrix(stiffar.shape)
+        stiff[:,:] = stiffar
+        stiff = stiff.tocsc()
+    else:
+        gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=args.closed,ndims=6)
 
     basefn = args.sequence_filename + '_params'
     if args.closed:
@@ -145,7 +152,7 @@ if __name__ == '__main__':
     fn_gs = basefn + '_gs.npy'
     fn_stiff = basefn + '_stiff.npz'
     
-    if sp.sparse.issparse:
+    if sp.sparse.issparse(stiff):
         spstiff = stiff
     else:
         spstiff = stiff.to_sparse()
