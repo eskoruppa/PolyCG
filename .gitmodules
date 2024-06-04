@@ -1,5 +1,5 @@
 [submodule "polycg/cgNA_plus"]
-	path = polycg/cgNA_plus
+	path = polycg/Models/cgNA_plus
 	url = git@github.com:eskoruppa/cgNA_plus
 [submodule "polycg/IOPolyMC"]
 	path = polycg/IOPolyMC
@@ -10,3 +10,6 @@
 [submodule "polycg/pyConDec"]
 	path = polycg/pyConDec
 	url = git@github.com:eskoruppa/pyConDec
+[submodule "polycg/Models/RBPStiff"]
+	path = polycg/Models/RBPStiff
+	url = git@github.com:eskoruppa/RBPStiff

@@ -4,9 +4,9 @@ from scipy import sparse
 from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix
 import sys
 import argparse
-
 from typing import List, Tuple, Callable, Any, Dict
-from .cgNA_plus.modules.cgDNAUtils import constructSeqParms
+
+from .Models.cgNA_plus.modules.cgDNAUtils import constructSeqParms
 
 from .Transforms.transform_marginals import vector_marginal, matrix_marginal, unwrap_wildtypes, matrix_marginal_assignment, vector_marginal_assignment
 from .Transforms.transform_units import conversion
@@ -15,6 +15,8 @@ from .Transforms.transform_statevec import statevec2vecs, vecs2statevec
 from .Transforms.transform_cayley2euler import cayley2euler, cayley2euler_stiffmat
 from .Transforms.transform_algebra2group import algebra2group_stiffmat
 from .Transforms.transform_midstep2triad import midstep2triad
+
+from .Transforms.transform_marginals import vector_rotmarginal, matrix_rotmarginal
 
 from .partials import partial_stiff
 from .Aux.aux import load_sequence
@@ -28,7 +30,8 @@ def cgnaplus_bps_params(
     euler_definition: bool = True,
     group_split: bool = False,
     parameter_set_name: str = 'curves_plus',
-    remove_factor_five: bool = True 
+    remove_factor_five: bool = True,
+    rotations_only: bool = False
     ) -> Tuple[np.ndarray,np.ndarray]:
     
     if parameter_set_name == 'curves_plus':
@@ -63,7 +66,11 @@ def cgnaplus_bps_params(
         
         stiff = algebra2group_stiffmat(gs,stiff,rotation_first=True,translation_as_midstep=True)  
         gs    = midstep2triad(gs)
-         
+    
+    if rotations_only:
+        gs    = vector_rotmarginal(vecs2statevec(gs))
+        stiff = matrix_rotmarginal(stiff)
+     
     return gs, stiff
 
 def cgnaplus_name_assign(seq: str, dof_names=["W", "x", "C", "y"]) -> List[str]:

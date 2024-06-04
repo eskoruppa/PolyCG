@@ -202,11 +202,7 @@ def test_composite(seq: str = 'ACGATC',num_confs = 10000):
     
     Msum = marginal_schur_complement(Mcomp,retained_ids=[i+len(Mcomp)-6 for i in range(6)])
     
-    # print('calculated stiffness matrix')
-    # print(Msum)
-    
-    
-    # num_confs = 10000
+    # print('calculated stiffness matrix')i*6:(i+1)*6
     group_dx = np.random.multivariate_normal(np.zeros(len(group_cov)), group_cov,num_confs)
     group_dx = statevec2vecs(group_dx,vdim=6)
     

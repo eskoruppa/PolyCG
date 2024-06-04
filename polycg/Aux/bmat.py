@@ -469,3 +469,21 @@ class BOMat:
         if sx1 < b2:
             shifts += [baseshift]
         return shifts
+
+
+# def blockoverlap2bmat(matrix: np.ndarray, blocksize: int, blockoverlap: np.ndarray, ndims: int = 6, periodic: bool = False,fixed_size=True,check_bounds=True,check_bounds_on_read=False) -> BlockOverlapMatrix:
+     
+#     bmat = BlockOverlapMatrix(
+#         ndims,
+#         average=True,
+#         xlo=0,
+#         xhi=matrix.shape[0],
+#         ylo=0,
+#         yhi=matrix.shape[1],
+#         periodic=periodic,
+#         fixed_size=True,
+#         check_bounds=check_bounds,
+#         check_bounds_on_read=check_bounds_on_read
+#     )
+#     for 
+    

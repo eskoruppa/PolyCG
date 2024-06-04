@@ -145,7 +145,7 @@ def _partial_stiff_closed(
     block_size: int,
     overlap_size: int,
     tail_size: int,
-    ndims: int = 3,
+    ndims: int = 6,
 ) -> Tuple[np.ndarray, BlockOverlapMatrix]:
     # the main sequence includes the step connecting the last and first bp
     # the full sequence includes the overlap region on top of that
@@ -218,7 +218,7 @@ def _extract_bps_stiff(
     tail_size: int,
     stiffgen_method: Callable,
     stiffgen_args: Dict[str, Any],
-    ndims: int = 3,
+    ndims: int = 6,
     periodic: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray, int, int]:
     sid1 = id1
