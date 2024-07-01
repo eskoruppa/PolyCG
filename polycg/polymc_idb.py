@@ -394,13 +394,23 @@ if __name__ == "__main__":
                     
                     pdbfn = outfn + '_gs.pdb' 
                     gen_pdb(pdbfn, taus[:,:3,3], taus[:,:3,:3], sequence=seq, center=False)
-                    taus = taus[::10]
+                    
                     xyz = {
                         'types': ['C']*(len(taus)),
-                        'pos'  : [taus[:,:3,3]*10]
+                        'pos'  : [taus[:,:3,3]]
                         }
                     xyzfn = outfn + '_gs'
                     write_xyz(xyzfn,xyz)
+                    
+                    taus = taus[::10]
+                    xyz = {
+                        'types': ['C']*(len(taus)),
+                        'pos'  : [taus[:,:3,3]]
+                        }
+                    xyzfn = outfn + '_gs_10bp'
+                    write_xyz(xyzfn,xyz)
+                    
+        
             
             else:
                 ##########################################################
@@ -468,9 +478,8 @@ if __name__ == "__main__":
                     taus = gen_gs_config(cg_gs,disc_len * composite_size)
                     xyz = {
                         'types': ['C']*(len(taus)),
-                        'pos'  : [taus[:,:3,3]*10]
+                        'pos'  : [taus[:,:3,3]]
                         }
                     xyzfn = outfn + '_gs'
                     write_xyz(xyzfn,xyz)
-                    
                     
