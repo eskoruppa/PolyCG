@@ -41,6 +41,9 @@ def coarse_grain(
     if closed:
         raise NotImplementedError('Coarse graining of closed chains is not yet implemented')
     
+    if start_id is None:
+        start_id = 0
+    
     groundstate,stiffmat = _crop_gs_and_stiff(
         groundstate,
         stiffmat,
@@ -73,6 +76,7 @@ def coarse_grain(
             groundstate,
             stiffmat,
             composite_size,
+            closed = closed,
             substitute_block = substitute_block,
             use_sparse=use_sparse
         )
@@ -103,10 +107,14 @@ def cg_stiffmat(
     groundstate: np.ndarray,
     stiffmat: np.ndarray | sp.sparse.spmatrix,
     composite_size: int,
+    closed: bool = False,
     substitute_block: int = -1,
     use_sparse: bool = True
 ) -> np.ndarray | sp.sparse.spmatrix:   
 
+    if closed:
+        raise NotImplementedError('Partial coarse graining is not yet implemented for closed chains')
+    
     if len(groundstate.shape) != 2:
         raise ValueError(f'Shape of groundstate should be (N,ndims), but encountered {groundstate.shape}.')
 

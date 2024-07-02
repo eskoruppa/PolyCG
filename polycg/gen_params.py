@@ -1,0 +1,277 @@
+import sys, os
+import time
+import argparse
+import numpy as np
+import scipy as sp
+from typing import Any, Callable, Dict, List, Tuple
+
+
+# load models
+from .cgnaplus import cgnaplus_bps_params
+from .Models.RBPStiff.read_params import GenStiffness
+
+# load partial stiffness generation
+from .partials import partial_stiff
+
+# load coarse graining methods
+from .cg import coarse_grain
+
+# load sequence from sequence file
+from .Aux.aux import load_sequence
+
+# load so3 
+from .SO3 import so3
+
+# load iopolymc output methods
+from .IOPolyMC.iopolymc import write_xyz, gen_pdb
+
+
+
+# from .Aux.bmat import BlockOverlapMatrix
+
+# from .IOPolyMC.iopolymc import write_idb
+# from .Aux.seq import (
+#     sequence_file,
+#     unique_oli_seq,
+#     unique_olis_in_seq,
+#     seq2oliseq,
+#     all_oligomers,
+#     randseq,
+# )
+
+# from .Transforms.transform_marginals import matrix_rotmarginal,vector_rotmarginal
+# from .Transforms.transform_statevec import statevec2vecs, vecs2statevec
+
+
+
+# from .Transforms.transform_SE3 import euler2rotmat_se3
+# from .IOPolyMC.iopolymc import write_xyz, gen_pdb
+
+
+
+
+def gen_params(
+    model: str, 
+    sequence: str,
+    composite_size: int = 1,
+    closed: bool = False,
+    sparse: bool = True,
+    start_id: int = 0,
+    end_id:   int = None,
+    allow_partial: bool = True,
+    block_size: int = 120,
+    overlap_size: int = 20,
+    tail_size: int = 20,
+    allow_crop: bool = True,
+    cgnap_setname: str = 'curves_plus'
+    ) -> Dict:
+
+    ##################################################################################################################
+    # Generate Stiffness and groundstate
+
+    #########################################################
+    # Crystal structure data from Olson et al. 1998
+    # https://www.pnas.org/doi/full/10.1073/pnas.95.19.11163
+
+    if model.lower() in ['crystal','cry','olson']:
+        genstiff = GenStiffness(method='crystal')
+        stiff,gs = genstiff.gen_params(sequence,use_group=False,sparse=True)
+    
+    #########################################################
+    # MD data from Lankas et al. 2003
+    # https://doi.org/10.1016/S0006-3495(03)74710-9
+    
+    if model.lower() in ['md','lankas']:
+        genstiff = GenStiffness(method='md')
+        stiff,gs = genstiff.gen_params(sequence,use_group=False,sparse=True)
+    
+    #########################################################
+    # cgNA+, Sharma et al.
+    # https://doi.org/10.1016/j.jmb.2023.167978
+     
+    if model.lower() in ['cgnaplus','cgna+']:
+        
+        if allow_partial:
+            method = cgnaplus_bps_params
+            stiffgen_args = {
+                'translations_in_nm': True, 
+                'euler_definition': True, 
+                'group_split' : True,
+                'parameter_set_name' : cgnap_setname,
+                'remove_factor_five' : True,
+                'rotations_only': False
+                }
+        
+            nbps = len(sequence)
+            if not closed:
+                nbps -= 1
+            
+            if overlap_size > nbps:
+                overlap_size = nbps-1
+            if block_size > nbps:
+                block_size = nbps
+            
+            print('Generating partial stiffness matrix with')    
+            print(f'block_size:   {block_size}')
+            print(f'overlap_size: {overlap_size}')
+            print(f'tail_size:    {tail_size}')
+
+            gs,stiff = partial_stiff(
+                sequence,
+                method,
+                stiffgen_args,
+                block_size=block_size,
+                overlap_size=overlap_size,
+                tail_size=tail_size,
+                closed=closed,
+                ndims=6
+            )
+        
+        else:
+            gs,stiff = cgnaplus_bps_params(
+                sequence,
+                parameter_set_name=cgnap_setname,
+                )
+    
+    params = {
+        'seq' : sequence,
+        'gs': gs,
+        'stiff' : stiff
+    }
+    
+    if composite_size <= 1:
+        return params
+    
+    ##################################################################################################################
+    # Coarse-grain parameters
+
+    block_ncomp     = int(np.ceil(block_size/composite_size))
+    overlap_ncomp   = int(np.ceil(overlap_size/composite_size)) 
+    tail_ncomp      = int(np.ceil(tail_size/composite_size)) 
+
+    cg_gs, cg_stiff = coarse_grain(
+        gs,
+        stiff,
+        composite_size,
+        start_id=start_id,
+        end_id=end_id,
+        closed=closed,
+        allow_partial=allow_partial,
+        block_ncomp=block_ncomp,
+        overlap_ncomp=overlap_ncomp,
+        tail_ncomp=tail_ncomp,
+        allow_crop=allow_crop,
+        use_sparse=sparse,
+        )
+    
+    params['cg_gs'] = cg_gs
+    params['cg_stiff'] = cg_stiff
+    return params
+        
+    
+##################################################################################################################
+##################################################################################################################
+##################################################################################################################
+
+def gen_config(params: np.ndarray):
+    if len(params.shape) == 1:
+        pms = params.reshape(len(params)//6,6)
+    else:
+        pms = params
+    taus = np.zeros((len(pms)+1,4,4))
+    taus[0] = np.eye(4)
+    for i,pm in enumerate(pms):
+        g = so3.se3_euler2rotmat(pm)
+        taus[i+1] = taus[i] @ g
+    return taus
+
+##################################################################################################################
+##################################################################################################################
+##################################################################################################################
+
+
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description="Generate PolyMC input files")
+    parser.add_argument('-m',       '--model',              type=str, default = 'cgnaplus', choices=['cgnaplus','lankas','olson'])
+    parser.add_argument('-cg',      '--composite_size',     type=int, default = 1)
+    parser.add_argument('-seqfn',   '--sequence_file',      type=str, default = None)
+    parser.add_argument('-seq',     '--sequence',           type=str, default = None)
+    parser.add_argument('-closed',  '--closed',             action='store_true') 
+    parser.add_argument('-nc',      '--no_crop',            action='store_true') 
+    parser.add_argument('-np',      '--no_partial',         action='store_true') 
+    parser.add_argument('-sid',     '--start_id',           type=int, default=0) 
+    parser.add_argument('-eid',     '--end_id',             type=int, default=None) 
+    parser.add_argument('-xyz',     '--gen_xyz',            action='store_true') 
+    parser.add_argument('-pdb',     '--gen_pdb',            action='store_true') 
+    parser.add_argument('-o',       '--output_basename',    type=str, required=True)
+     
+    args = parser.parse_args()
+    
+    model           = args.model
+    composite_size  = args.composite_size
+    seqfn           = args.sequence_file
+    seq             = args.sequence
+    closed          = args.closed
+        
+    allow_crop      = not args.no_crop
+    allow_partial   = not args.no_partial
+    start_id        = args.start_id
+    end_id          = args.end_id
+    
+
+    ##################################################################################################################
+    
+    if seq is None:
+        if seqfn is None:
+            raise ValueError(f'Requires either a sequence (-seq) or a sequence file (-seqfn)')
+        seq = load_sequence(seqfn)
+            
+    sparse = True
+    cgnap_setname = 'curves_plus'
+    
+    params = gen_params(
+        model , 
+        seq,
+        composite_size,
+        closed=closed,
+        sparse=sparse,
+        start_id=start_id,
+        end_id=end_id,
+        allow_partial=allow_partial,
+        allow_crop=allow_crop,
+        cgnap_setname = cgnap_setname
+    )
+    
+    base_fn = args.output_basename
+    cg_fn = base_fn + f'_cg{composite_size}'
+    fn_gs = cg_fn + '_gs.npy'
+    fn_stiff = cg_fn + '_stiff.npz'
+    
+    print(f'writing stiffness to "{fn_stiff}"')
+    print(f'writing groundstate to "{fn_gs}"')
+    sp.sparse.save_npz(fn_stiff,params['cg_stiff'])
+    np.save(fn_gs,params['cg_gs'])
+    
+    if args.gen_xyz:
+        taus = gen_config(params['gs'])
+        cgtaus = gen_config(params['cg_gs'])
+        xyz = {
+            'types': ['C']*(len(taus)),
+            'pos'  : [taus[:,:3,3]]
+            }
+        xyzfn = base_fn + '_gs'
+        write_xyz(xyzfn,xyz)
+        
+        taus = taus[::10]
+        xyz = {
+            'types': ['C']*(len(taus)),
+            'pos'  : [taus[:,:3,3]]
+            }
+        xyzfn = base_fn + f'_gs_{composite_size}bp'
+        write_xyz(xyzfn,xyz)
+        
+    if args.gen_pdb:
+        taus = gen_config(params['gs'])
+        pdbfn = base_fn + '_gs.pdb' 
+        gen_pdb(pdbfn, taus[:,:3,3], taus[:,:3,:3], sequence=seq, center=False)
