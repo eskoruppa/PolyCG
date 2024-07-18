@@ -5,10 +5,10 @@ import numpy as np
 import scipy as sp
 from typing import Any, Callable, Dict, List, Tuple
 
-from .Aux.bmat import BlockOverlapMatrix
+from .aux.bmat import BlockOverlapMatrix
 
 from .IOPolyMC.iopolymc import write_idb
-from .Aux.seq import (
+from .aux.seq import (
     sequence_file,
     unique_oli_seq,
     unique_olis_in_seq,
@@ -17,16 +17,16 @@ from .Aux.seq import (
     randseq,
 )
 
-from .Aux.aux import load_sequence
+from .aux.aux import load_sequence
 from .partials import partial_stiff
 from .cg import coarse_grain
-from .Transforms.transform_marginals import matrix_rotmarginal,vector_rotmarginal
-from .Transforms.transform_statevec import statevec2vecs, vecs2statevec
+from .transforms.transform_marginals import matrix_rotmarginal,vector_rotmarginal
+from .transforms.transform_statevec import statevec2vecs, vecs2statevec
 
 from .cgnaplus import cgnaplus_bps_params
-from .Models.RBPStiff.read_params import GenStiffness
+from .models.RBPStiff.read_params import GenStiffness
 
-from .Transforms.transform_SE3 import euler2rotmat_se3
+from .transforms.transform_SE3 import euler2rotmat_se3
 from .IOPolyMC.iopolymc import write_xyz, gen_pdb
 
 """
@@ -199,7 +199,7 @@ def gen_gs_config(gs,disc_len):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Generate PolyMC input files")
-    parser.add_argument("-m", "--model", type=str, default = 'cgnaplus')
+    parser.add_argument("-m", "--model", type=str, default = 'cgnaplus',choices=['cgnaplus','lankas','olson'])
     parser.add_argument("-cg", "--composite_size", type=int, default = [1], nargs='*')
     parser.add_argument("-cr", "--coupling_range", type=int, default = 4)
     parser.add_argument('-seqfns', '--sequence_files', type=str, required=True, nargs='*') 
@@ -208,7 +208,7 @@ if __name__ == "__main__":
     
     parser.add_argument('-nc', '--no_crop', action='store_true') 
     parser.add_argument('-dl', '--disc_len', type=float, default=0.34) 
-    parser.add_argument('-ai', '--avg_inconsistency', action='store_false') 
+    parser.add_argument('-ai', '--avg_inconsistency', action='store_true') 
     parser.add_argument('-gm', '--generate_missing', action='store_true') 
     
     parser.add_argument('-fid', '--first_id', type=int, default=0) 
@@ -259,7 +259,7 @@ if __name__ == "__main__":
     print(f'generate_missing:       {generate_missing}')
     print('')
     
-    include_deactivate_static = True
+    include_deactivate_static = False
     
     # ps_set = 'cgDNA+ps1'
     ps_set = 'cgDNA+_Curves_BSTJ_10mus_FS'
@@ -317,11 +317,20 @@ if __name__ == "__main__":
         ################################
         # RBPStiff
         
-        if model.lower() in ['rbp','rbpstiff']:
+        if model.lower() in ['rbp','rbpstiff','lankas']:
+            print('generating stiffness with RBPStiff')
+            genstiff = GenStiffness(method='md')
+            stiff, gs = genstiff.gen_params(seq,use_group=True,sparse=True)
+            gs    = statevec2vecs(vector_rotmarginal(vecs2statevec(gs)),vdim=3)
+            stiff = matrix_rotmarginal(stiff)
+            
+        if model.lower() in ['crystal','olson']:
             print('generating stiffness with RBPStiff')
             genstiff = GenStiffness(method='crystal')
             stiff, gs = genstiff.gen_params(seq,use_group=True,sparse=True)
-        
+            gs    = statevec2vecs(vector_rotmarginal(vecs2statevec(gs)),vdim=3)
+            stiff = matrix_rotmarginal(stiff)
+            
         ##########################################################
         ##########################################################
         # Rescale Stiffness

@@ -7,12 +7,12 @@ import sys, time
 from typing import List, Tuple, Callable, Any, Dict
 from .cgnaplus import cgnaplus_bps_params
 
-from .Transforms.transform_cayley2euler import *
-from .Transforms.transform_marginals import *
-from .Transforms.transform_statevec import *
-from .Evals.kullbackleibler import *
-from .Transforms.transform_algebra2group import *
-from .Transforms.transform_midstep2triad import *
+from .transforms.transform_cayley2euler import *
+from .transforms.transform_marginals import *
+from .transforms.transform_statevec import *
+from .evals.kullbackleibler import *
+from .transforms.transform_algebra2group import *
+from .transforms.transform_midstep2triad import *
 
 from numba import njit
 

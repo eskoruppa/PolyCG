@@ -24,13 +24,13 @@ from .cg import coarse_grain, cg_groundstate, cg_stiffmat, cg_stiff_partial
 
 ############################
 # Aux 
-from .Aux.aux import load_sequence
-from .Aux.bmat import BlockOverlapMatrix
-from .Aux.seq import randseq, unique_oli_seq, all_oligomers, unique_seq_of_chars, unique_olis_in_seq, sequence_file, seq2oliseq
+from .aux.aux import load_sequence
+from .aux.bmat import BlockOverlapMatrix
+from .aux.seq import randseq, unique_oli_seq, all_oligomers, unique_seq_of_chars, unique_olis_in_seq, sequence_file, seq2oliseq, write_seqfile
 
 ############################
 # Transforms
-from .Transforms.transform_cayley2euler import cayley2euler, cayley2euler_lintrans, cayley2euler_stiffmat
+from .transforms.transform_cayley2euler import cayley2euler, cayley2euler_lintrans, cayley2euler_stiffmat
 
 ############################
 # Evals

@@ -4,11 +4,11 @@ import scipy as sp
 from typing import List, Tuple, Callable, Any, Dict
 
 from .SO3 import so3
-from .Transforms.transform_SO3 import euler2rotmat_so3
+from .transforms.transform_SO3 import euler2rotmat_so3
 from .composites import composite_matrix, inv_composite_matrix, composite_groundstate
-from .Transforms.transform_marginals import marginal_schur_complement, matrix_marginal
-from .Aux.bmat import BlockOverlapMatrix
-from .Transforms.transform_statevec import vecs2statevec, statevec2vecs
+from .transforms.transform_marginals import marginal_schur_complement, matrix_marginal
+from .aux.bmat import BlockOverlapMatrix
+from .transforms.transform_statevec import vecs2statevec, statevec2vecs
 
 import time
 
@@ -338,7 +338,7 @@ def _cg_stiff_partial_linear(
 if __name__ == '__main__':
         
     from .cgnaplus import cgnaplus_bps_params
-    from .Aux.aux import load_sequence
+    from .aux.aux import load_sequence
     from .partials import partial_stiff
     
     np.set_printoptions(linewidth=250, precision=3, suppress=True,edgeitems=12)

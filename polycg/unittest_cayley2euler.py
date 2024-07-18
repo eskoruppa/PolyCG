@@ -7,10 +7,10 @@ import sys
 from typing import List, Tuple, Callable, Any, Dict
 from .cgnaplus import cgnaplus_bps_params
 
-from .Transforms.transform_cayley2euler import *
-from .Transforms.transform_marginals import *
-from .Transforms.transform_statevec import *
-from .Evals.kullbackleibler import *
+from .transforms.transform_cayley2euler import *
+from .transforms.transform_marginals import *
+from .transforms.transform_statevec import *
+from .evals.kullbackleibler import *
 from numba import njit
 
 def test_order_of_rotation_marginals(seq: str = 'ACGATC'):

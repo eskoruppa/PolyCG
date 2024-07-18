@@ -7,9 +7,9 @@ import sys
 from typing import List, Tuple, Callable, Any, Dict
 from .cgnaplus import cgnaplus_bps_params
 
-from .Transforms.transform_cayley2euler import *
-from .Transforms.transform_marginals import *
-from .Transforms.transform_statevec import *
+from .transforms.transform_cayley2euler import *
+from .transforms.transform_marginals import *
+from .transforms.transform_statevec import *
 from numba import njit
 
 def test_order_of_rotation_marginals(seq: str = 'ACGATC',num_confs = 100000):
@@ -276,7 +276,7 @@ if __name__ == "__main__":
     # print(stiff[:6,:6])
     # print(stiff_cayley[:6,:6])
     
-    from .Transforms.transform_midstep2triad import *
+    from .transforms.transform_midstep2triad import *
     
     gs_cayley_triad = translation_midstep2triad(gs_cayley,rotation_map = 'cayley')
     
@@ -326,9 +326,9 @@ if __name__ == "__main__":
     gs_cayley = euler2cayley(gs_euler)
     
     # from .transform_SE3 import se3_cayleys2rotmats, se3_vecs2rotmats, se3_rotmats2triads, se3_triads2rotmats, se3_rotmats2vecs, se3_transformations_normal2midsteptrans
-    from .Transforms.transform_SE3 import *
+    from .transforms.transform_SE3 import *
     
-    from .Transforms.transform_midstep2triad import *
+    from .transforms.transform_midstep2triad import *
     
     gs_triad = translation_midstep2triad(gs_cayley)
     

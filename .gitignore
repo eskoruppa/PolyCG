@@ -36,3 +36,6 @@
 
 # todo
 **todo
+
+# ignore unittests
+**unittest*

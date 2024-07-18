@@ -1,12 +1,13 @@
 from setuptools import setup, find_packages
 
-setup(name='<REPO NAME>',
+# TO: setup installer
+
+setup(name='PolyCG',
       version='0.0.1',
-      description='ADD DESCRIPTION',
-      url='https://github.com/eskoruppa/<REPO NAME>',
+      description='Module to coarse-grain elastic parameters of DNA models',
+      url='https://github.com/eskoruppa/PolyCG',
       author='Enrico Skoruppa',
-      author_email='enrico dot skoruppa at gmail dot com',
+      author_email='esk dot phys at gmail dot com',
       license='GNU2',
       packages=find_packages(),
       zip_safe=False) 
-

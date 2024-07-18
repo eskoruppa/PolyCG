@@ -107,6 +107,8 @@ def unique_olis_in_seq(seq: str, oli_size: int):
         olis.append(oli)
     return True
 
+def write_seqfile(filename: str, seq, add_extension=True):
+    sequence_file(filename,seq,add_extension=add_extension)
 
 def sequence_file(filename: str, seq, add_extension=True):
     if add_extension:

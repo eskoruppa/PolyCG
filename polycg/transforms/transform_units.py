@@ -25,6 +25,15 @@ def conversion(array: np.ndarray, factor: float, block_dim: int = 6, dofs: List[
         if dims == 2:
             carray[:,dof::block_dim] *= factor
     return carray
+
+
+if __name__ == '__main__':
+    
+    stiff = np.ones((12,12))
+    factor = 5
+    nmat = conversion(stiff,factor,block_dim=6,dofs=[0,1,2])
+    print(nmat)
+    
             
     
 # def fifth2rad(val: Any) -> float:

@@ -3,8 +3,8 @@ import numpy as np
 from typing import List, Tuple, Callable, Any, Dict
 
 from .SO3 import so3
-from .Transforms.transform_SO3 import euler2rotmat_so3, rotmat2euler_so3
-from .Transforms.transform_SE3 import euler2rotmat_se3, rotmat2euler_se3
+from .transforms.transform_SO3 import euler2rotmat_so3, rotmat2euler_so3
+from .transforms.transform_SE3 import euler2rotmat_se3, rotmat2euler_se3
 
 
 def composite_groundstate(

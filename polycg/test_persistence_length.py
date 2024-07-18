@@ -8,14 +8,14 @@ from matplotlib import pyplot as plt
 from typing import List, Tuple, Callable, Any, Dict
 from .cgnaplus import cgnaplus_bps_params
 
-from .Transforms.transform_SE3 import *
-from .Transforms.transform_cayley2euler import *
-from .Transforms.transform_marginals import *
-from .Transforms.transform_statevec import *
-from .Transforms.transform_algebra2group import *
+from .transforms.transform_SE3 import *
+from .transforms.transform_cayley2euler import *
+from .transforms.transform_marginals import *
+from .transforms.transform_statevec import *
+from .transforms.transform_algebra2group import *
 from .composites import *
-from .Evals.tangent_correlation import TangentCorr
-from .Aux.aux import load_sequence
+from .evals.tangent_correlation import TangentCorr
+from .aux.aux import load_sequence
 from .partials import partial_stiff
 from .cg import coarse_grain
 

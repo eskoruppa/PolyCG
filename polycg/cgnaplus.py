@@ -6,23 +6,24 @@ import sys
 import argparse
 from typing import List, Tuple, Callable, Any, Dict
 
-from .Models.cgNA_plus.modules.cgDNAUtils import constructSeqParms
+from .models.cgNA_plus.modules.cgDNAUtils import constructSeqParms
 
-from .Transforms.transform_marginals import vector_marginal, matrix_marginal, unwrap_wildtypes, matrix_marginal_assignment, vector_marginal_assignment
-from .Transforms.transform_units import conversion
-from .Transforms.transform_statevec import statevec2vecs, vecs2statevec
+from .transforms.transform_marginals import vector_marginal, matrix_marginal, unwrap_wildtypes, matrix_marginal_assignment, vector_marginal_assignment
+from .transforms.transform_units import conversion
+from .transforms.transform_statevec import statevec2vecs, vecs2statevec
 
-from .Transforms.transform_cayley2euler import cayley2euler, cayley2euler_stiffmat
-from .Transforms.transform_algebra2group import algebra2group_stiffmat
-from .Transforms.transform_midstep2triad import midstep2triad
+from .transforms.transform_cayley2euler import cayley2euler, cayley2euler_stiffmat
+from .transforms.transform_algebra2group import algebra2group_stiffmat
+from .transforms.transform_midstep2triad import midstep2triad
 
-from .Transforms.transform_marginals import vector_rotmarginal, matrix_rotmarginal
+from .transforms.transform_marginals import vector_rotmarginal, matrix_rotmarginal
 
 from .partials import partial_stiff
-from .Aux.aux import load_sequence
+from .aux.aux import load_sequence
 
 CURVES_PLUS_DATASET_NAME = "cgDNA+_Curves_BSTJ_10mus_FS"
 # CURVES_PLUS_DATASET_NAME = "cgDNA+ps1"
+# CURVES_PLUS_DATASET_NAME = "Prmset_cgDNA+_CGF_10mus_int_12mus_ends"
 
 def cgnaplus_bps_params(
     sequence: str, 
@@ -97,18 +98,28 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate PolyMC input files")
     parser.add_argument('-seqfn', '--sequence_filename', type=str, required=True) 
     # parser.add_argument('-out', '--out_filename', type=str, required=True) 
-    parser.add_argument('-nm',    '--translations_in_nm', type=bool, default=True)
-    parser.add_argument('-euler', '--euler_definition', type=bool, default=True)
-    parser.add_argument('-group', '--group_split', type=bool, default=True)
-    parser.add_argument('-fac5',  '--keep_factor_five', type=bool, default=False)
+    parser.add_argument('-nm',    '--translations_in_nm', type=int, default=1)
+    parser.add_argument('-euler', '--euler_definition', type=int, default=1)
+    parser.add_argument('-group', '--group_split', type=int, default=1)
+    parser.add_argument('-fac5',  '--keep_factor_five', type=int, default=0)
     parser.add_argument('-set',   '--parameter_set_name', type=str, default='curves_plus')
     
-    parser.add_argument('-closed','--closed', type=bool, default=False)
+    parser.add_argument('-closed','--closed', type=int, default=0)
     parser.add_argument('-bs',    '--block_size', type=int, default=120)
     parser.add_argument('-os',    '--overlap_size', type=int, default=20)
     parser.add_argument('-ts',    '--tail_size', type=int, default=20)
     
     args = parser.parse_args()
+    
+    translations_in_nm = bool(args.translations_in_nm)
+    euler_definition   = bool(args.euler_definition)
+    group_split        = bool(args.group_split)
+    keep_factor_five   = bool(args.keep_factor_five)
+    
+    print(f'translations_in_nm: {translations_in_nm}')
+    print(f'euler_definition:   {euler_definition}')
+    print(f'group_split:        {group_split}')
+    print(f'keep_factor_five:   {keep_factor_five}')
     
     seq = load_sequence(args.sequence_filename)
     # seq = seq[:10]
@@ -123,11 +134,11 @@ if __name__ == '__main__':
 
     method = cgnaplus_bps_params
     stiffgen_args = {
-        'translations_in_nm': args.translations_in_nm, 
-        'euler_definition': args.euler_definition, 
-        'group_split' : args.group_split,
+        'translations_in_nm': translations_in_nm, 
+        'euler_definition': euler_definition, 
+        'group_split' : group_split,
         'parameter_set_name' : args.parameter_set_name,
-        'remove_factor_five' : not args.keep_factor_five,
+        'remove_factor_five' : not keep_factor_five,
         }
     
     block_size = args.block_size
