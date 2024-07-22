@@ -13,3 +13,6 @@
 [submodule "polycg/Models/RBPStiff"]
 	path = polycg/Models/RBPStiff
 	url = git@github.com:eskoruppa/RBPStiff
+[submodule "polycg/models/RBPStiff"]
+	path = polycg/models/RBPStiff
+	url = git@github.com:eskoruppa/RBPStiff

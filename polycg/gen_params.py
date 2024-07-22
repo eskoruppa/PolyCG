@@ -189,8 +189,8 @@ if __name__ == "__main__":
     seqfn           = args.sequence_file
     seq             = args.sequence
     closed          = args.closed
-        
     allow_crop      = not args.no_crop
+        
     allow_partial   = not args.no_partial
     start_id        = args.start_id
     end_id          = args.end_id
