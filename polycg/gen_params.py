@@ -13,9 +13,9 @@ from .partials import partial_stiff
 # load coarse graining methods
 from .cg import coarse_grain
 # load sequence from sequence file
-from .aux.aux import load_sequence
+from .utils.aux import load_sequence
 # write sequence file
-from .aux.seq import write_seqfile
+from .utils.seq import write_seqfile
 # load so3 
 from .SO3 import so3
 # load visualization methods

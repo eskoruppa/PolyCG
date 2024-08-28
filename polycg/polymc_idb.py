@@ -5,10 +5,10 @@ import numpy as np
 import scipy as sp
 from typing import Any, Callable, Dict, List, Tuple
 
-from .aux.bmat import BlockOverlapMatrix
+from .utils.bmat import BlockOverlapMatrix
 
 from .IOPolyMC.iopolymc import write_idb
-from .aux.seq import (
+from .utils.seq import (
     sequence_file,
     unique_oli_seq,
     unique_olis_in_seq,
@@ -17,7 +17,7 @@ from .aux.seq import (
     randseq,
 )
 
-from .aux.aux import load_sequence
+from .utils.aux import load_sequence
 from .partials import partial_stiff
 from .cg import coarse_grain
 from .transforms.transform_marginals import matrix_rotmarginal,vector_rotmarginal

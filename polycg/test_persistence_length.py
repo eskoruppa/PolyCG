@@ -15,7 +15,7 @@ from .transforms.transform_statevec import *
 from .transforms.transform_algebra2group import *
 from .composites import *
 from .evals.tangent_correlation import TangentCorr
-from .aux.aux import load_sequence
+from .utils.aux import load_sequence
 from .partials import partial_stiff
 from .cg import coarse_grain
 

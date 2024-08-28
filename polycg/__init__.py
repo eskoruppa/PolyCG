@@ -24,9 +24,9 @@ from .cg import coarse_grain, cg_groundstate, cg_stiffmat, cg_stiff_partial
 
 ############################
 # Aux 
-from .aux.aux import load_sequence
-from .aux.bmat import BlockOverlapMatrix
-from .aux.seq import randseq, unique_oli_seq, all_oligomers, unique_seq_of_chars, unique_olis_in_seq, sequence_file, seq2oliseq, write_seqfile
+from .utils.aux import load_sequence
+from .utils.bmat import BlockOverlapMatrix
+from .utils.seq import randseq, unique_oli_seq, all_oligomers, unique_seq_of_chars, unique_olis_in_seq, sequence_file, seq2oliseq, write_seqfile
 
 ############################
 # Transforms

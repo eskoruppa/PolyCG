@@ -2,7 +2,7 @@ from __future__ import annotations
 import sys
 import numpy as np
 from typing import Tuple, List, Callable, Any, Dict
-from .aux.bmat import BlockOverlapMatrix
+from .utils.bmat import BlockOverlapMatrix
 from .transforms.transform_statevec import statevec2vecs
 
 PARTIALS_MIN_BLOCK = 4

@@ -19,7 +19,7 @@ from .transforms.transform_midstep2triad import midstep2triad
 from .transforms.transform_marginals import vector_rotmarginal, matrix_rotmarginal
 
 from .partials import partial_stiff
-from .aux.aux import load_sequence
+from .utils.aux import load_sequence
 
 CURVES_PLUS_DATASET_NAME = "cgDNA+_Curves_BSTJ_10mus_FS"
 # CURVES_PLUS_DATASET_NAME = "cgDNA+ps1"

@@ -7,7 +7,7 @@ from .SO3 import so3
 from .transforms.transform_SO3 import euler2rotmat_so3
 from .composites import composite_matrix, inv_composite_matrix, composite_groundstate
 from .transforms.transform_marginals import marginal_schur_complement, matrix_marginal
-from .aux.bmat import BlockOverlapMatrix
+from .utils.bmat import BlockOverlapMatrix
 from .transforms.transform_statevec import vecs2statevec, statevec2vecs
 
 import time
@@ -338,7 +338,7 @@ def _cg_stiff_partial_linear(
 if __name__ == '__main__':
         
     from .cgnaplus import cgnaplus_bps_params
-    from .aux.aux import load_sequence
+    from .utils.aux import load_sequence
     from .partials import partial_stiff
     
     np.set_printoptions(linewidth=250, precision=3, suppress=True,edgeitems=12)
