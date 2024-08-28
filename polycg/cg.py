@@ -338,7 +338,7 @@ def _cg_stiff_partial_linear(
 if __name__ == '__main__':
         
     from .cgnaplus import cgnaplus_bps_params
-    from .utils.aux import load_sequence
+    from .utils.load_seq import load_sequence
     from .partials import partial_stiff
     
     np.set_printoptions(linewidth=250, precision=3, suppress=True,edgeitems=12)

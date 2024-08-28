@@ -17,7 +17,7 @@ from .utils.seq import (
     randseq,
 )
 
-from .utils.aux import load_sequence
+from .utils.load_seq import load_sequence
 from .partials import partial_stiff
 from .cg import coarse_grain
 from .transforms.transform_marginals import matrix_rotmarginal,vector_rotmarginal
