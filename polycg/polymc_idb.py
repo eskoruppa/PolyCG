@@ -219,6 +219,7 @@ if __name__ == "__main__":
     parser.add_argument('-C',  '--Cvalue', type=float, default=100) 
     parser.add_argument('-A',  '--Avalue', type=float, default=40) 
     parser.add_argument('-xyz',  '--gen_xyz', action='store_true') 
+    parser.add_argument('-gs',  '--dump_gs', action='store_true') 
      
     
     args = parser.parse_args()
@@ -418,9 +419,11 @@ if __name__ == "__main__":
                         }
                     xyzfn = outfn + '_gs_10bp'
                     write_xyz(xyzfn,xyz)
-                    
-        
-            
+                
+                if args.dump_gs:
+                    fn_gs = outfn + '_gs.npy'
+                    np.save(fn_gs,gs)    
+                
             else:
                 ##########################################################
                 # Coarse-Grain 
@@ -492,3 +495,6 @@ if __name__ == "__main__":
                     xyzfn = outfn + '_gs'
                     write_xyz(xyzfn,xyz)
                     
+                if args.dump_gs:
+                    fn_gs = outfn + '_gs.npy'
+                    np.save(fn_gs,cg_gs)    
