@@ -5,6 +5,8 @@ import numpy as np
 import scipy as sp
 from typing import Any, Callable, Dict, List, Tuple
 
+from __future__ import annotations
+
 from .utils.bmat import BlockOverlapMatrix
 
 from .IOPolyMC.iopolymc import write_idb

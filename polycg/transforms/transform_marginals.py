@@ -3,8 +3,10 @@ import scipy as sp
 from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix
 from scipy import sparse
 from typing import List, Tuple, Callable, Any, Dict, Optional
+from __future__ import annotations
 from ..SO3 import so3
 from warnings import warn
+
 
 def matrix_marginal(
     matrix: np.ndarray | sp.sparse.csc_matrix | sp.sparse.csr_matrix | sp.sparse.coo_matrix, 
