@@ -1,9 +1,8 @@
+from __future__ import annotations
 import sys, os
 import numpy as np
 import scipy as sp
 from typing import List, Tuple, Callable, Any, Dict
-
-from __future__ import annotations
 
 from .SO3 import so3
 from .transforms.transform_SO3 import euler2rotmat_so3

@@ -1,11 +1,10 @@
+from __future__ import annotations
 import sys, os
 import time
 import argparse
 import numpy as np
 import scipy as sp
 from typing import Any, Callable, Dict, List, Tuple
-
-from __future__ import annotations
 
 from .utils.bmat import BlockOverlapMatrix
 
@@ -222,6 +221,7 @@ if __name__ == "__main__":
     parser.add_argument('-A',  '--Avalue', type=float, default=40) 
     parser.add_argument('-xyz',  '--gen_xyz', action='store_true') 
     parser.add_argument('-gs',  '--dump_gs', action='store_true') 
+    parser.add_argument('-nostatic',  '--no_static', action='store_true') 
      
     
     args = parser.parse_args()
@@ -262,7 +262,7 @@ if __name__ == "__main__":
     print(f'generate_missing:       {generate_missing}')
     print('')
     
-    include_deactivate_static = False
+    include_deactivate_static = args.no_static
     
     # ps_set = 'cgDNA+ps1'
     ps_set = 'cgDNA+_Curves_BSTJ_10mus_FS'
