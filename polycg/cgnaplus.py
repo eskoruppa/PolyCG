@@ -39,7 +39,7 @@ def cgnaplus_bps_params(
         parameter_set_name = CURVES_PLUS_DATASET_NAME
     
     gs,stiff = constructSeqParms(sequence,parameter_set_name)
-    names = _cgnaplus_name_assignment(sequence)
+    names = cgnaplus_name_assignment(sequence)
     select_names = ["y*"]
     stiff = matrix_marginal_assignment(stiff,select_names,names,block_dim=6)
     gs    = vector_marginal_assignment(gs,select_names,names,block_dim=6)
@@ -74,7 +74,7 @@ def cgnaplus_bps_params(
      
     return gs, stiff
 
-def _cgnaplus_name_assignment(seq: str, dof_names=["W", "x", "C", "y"]) -> List[str]:
+def cgnaplus_name_assignment(seq: str, dof_names=["W", "x", "C", "y"]) -> List[str]:
     """
     Generates the sequence of contained degrees of freedom for the specified sequence.
     The default names follow the convention introduced on the cgNA+ website

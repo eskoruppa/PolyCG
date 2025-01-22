@@ -16,7 +16,7 @@ from .IOPolyMC.iopolymc import dna_oligomers, write_idb
 ############################
 # Generation methods
 from .gen_params import gen_params, gen_config
-from .cgnaplus import cgnaplus_bps_params
+from .cgnaplus import cgnaplus_bps_params, cgnaplus_name_assignment
 
 ############################
 # Coarse-graining methods
