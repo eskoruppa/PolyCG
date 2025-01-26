@@ -109,7 +109,7 @@ def triads2bild(fn: str, taus: np.ndarray, alpha: float = 1., ucolor = 'default'
         fn += '.bild'
     
     dist = np.mean(np.linalg.norm(taus[1:,:3,3]-taus[:-1,:3,3],axis=1))
-    size = dist * 0.66
+    size = dist * 0.66 * scale
     nm2aafac = 1
     if nm2aa:
         nm2aafac = 10
@@ -127,7 +127,7 @@ def triads2bild(fn: str, taus: np.ndarray, alpha: float = 1., ucolor = 'default'
     shapestr = f'{np.round(size*nm2aafac/20,decimals=decimals)} {np.round(size*nm2aafac/20*2,decimals=decimals)} 0.70'
     with open(fn,'w') as f:
         if alpha < 1.0:
-            f.write(f'.transparency {1-alpha}')
+            f.write(f'.transparency {1-alpha}\n')
         for i,tau in enumerate(taus):
             tau = tau[:3]
             f.write(f'# triad {i+1}\n')
@@ -149,6 +149,5 @@ def taus2pdb(fn: str, taus: np.ndarray, seq: str):
         raise ValueError(f'Dimension of taus ({taus.shape}) and seq ({len(seq)}) do not match.')
     iopmc.gen_pdb(fn, taus[:,:3,3], taus[:,:3,:3], sequence=seq, center=False)
     return fn
-    
     
     
