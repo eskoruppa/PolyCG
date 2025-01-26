@@ -230,8 +230,11 @@ if __name__ == "__main__":
     
     print(f'writing stiffness to "{fn_stiff}"')
     print(f'writing groundstate to "{fn_gs}"')
-    sp.sparse.save_npz(fn_stiff,params['cg_stiff'])
-    np.save(fn_gs,params['cg_gs'])
+    add = ''
+    if composite_size > 1:
+        add = 'cg_'
+    sp.sparse.save_npz(fn_stiff,params[add+'stiff'])
+    np.save(fn_gs,params[add+'gs'])
     
     # write sequence file
     seqfn = base_fn + '.seq'
