@@ -57,11 +57,6 @@ def test_algebra2group(seq: str = 'ACGATC',num_confs = 10000):
     group_stiff = algebra2group_stiffmat(algebra_gs,algebra_stiff,rotation_first=True,translation_as_midstep=translation_as_midstep)
     
     
-    # # HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    # gs,sti = cgnaplus_bps_params(seq,translations_in_nm=False,group_split=True,euler_definition=True)
-    # print(np.sum(group_stiff-sti))
-    # sys.exit()
-    
     test_algebra_stiff = group2algebra_stiffmat(group_gs,group_stiff,rotation_first=True,translation_as_midstep=translation_as_midstep)
     print(f'group_stiff transformation test: diff = {np.sum(algebra_stiff-test_algebra_stiff)}')
     
