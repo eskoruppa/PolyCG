@@ -51,7 +51,7 @@ def stiff2idb(
     seq: str | None = None,
     disc_len: float = 0.34,
     avg_inconsist: bool = True,
-    generate_missing: bool = True,
+    generate_missing: bool = False,
     unique_sequence: bool = True,
     boundary_char: str = "x",
     exclude_chars: str = "y",
@@ -71,9 +71,10 @@ def stiff2idb(
     else:
         assignseq = str(seq)
         chars = "".join(sorted(set(assignseq)))
-        
+     
     # allow cross boundary assignment
-    stiff.check_bounds_on_read = False
+    if isinstance(stiff, BlockOverlapMatrix):
+        stiff.check_bounds_on_read = False
     params = dict()
     
     for i in range(Nbps):
@@ -107,7 +108,8 @@ def stiff2idb(
         idbfn += ".idb"
     write_idb(idbfn, idbdict, decimals=3)
     sequence_file(basefilename, assignseq, add_extension=True)
-    sequence_file(basefilename + ".origseq", seq, add_extension=False)
+    if seq is not None:
+        sequence_file(basefilename + ".origseq", seq, add_extension=False)
 
 def _matassign(stiff ,cl: int ,cu: int, closed: bool):
     

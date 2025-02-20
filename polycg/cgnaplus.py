@@ -176,20 +176,3 @@ if __name__ == '__main__':
         spstiff = stiff.to_sparse()
     sparse.save_npz(fn_stiff,spstiff)
     np.save(fn_gs,gs)
-    
-
-    np.set_printoptions(linewidth=250, precision=4, suppress=True)
-    print(gs)
-    names = cgnaplus_name_assignment(seq)
-    print(len(names)*6)
-    print(names)
-    gs,stiff = constructSeqParms(seq,CURVES_PLUS_DATASET_NAME)
-    print(gs.shape)
-    print(gs)
-    
-    print(gs[12:15]/5)
-    print(gs[15:18])
-    
-    # select_names = ['x1','x14','x2']
-    # gs_ys = vector_marginal_assignment(gs,select_names,names,block_dim=6)
-    # print(gs_ys)rint(gs)
