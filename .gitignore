@@ -43,3 +43,11 @@
 
 # ignore unittests
 **unittest*
+
+# # ignore old 
+# **old/
+# **old*/
+# **Old/
+# **Old*/
+# **OLD/
+# **OLD*/
