@@ -22,8 +22,11 @@ from .partials import partial_stiff
 from .utils.load_seq import load_sequence
 
 CURVES_PLUS_DATASET_NAME = "cgDNA+_Curves_BSTJ_10mus_FS"
+CURVES_PLUS_DATASET_NAME = "Prmset_cgDNA+_CGF_10mus_int_12mus_ends"
 # CURVES_PLUS_DATASET_NAME = "cgDNA+ps1"
-# CURVES_PLUS_DATASET_NAME = "Prmset_cgDNA+_CGF_10mus_int_12mus_ends"
+# CURVES_PLUS_DATASET_NAME = "cgDNA+_MLE_ends12mus_ends_CGF_BSC1"
+# CURVES_PLUS_DATASET_NAME = "Prmset_cgRNA+_OL3_CGF_10mus_int_12mus_ends"
+# CURVES_PLUS_DATASET_NAME = "Di_hmethyl_methylated-hemi_combine"
 
 def cgnaplus_bps_params(
     sequence: str, 
@@ -39,6 +42,7 @@ def cgnaplus_bps_params(
         parameter_set_name = CURVES_PLUS_DATASET_NAME
     
     gs,stiff = constructSeqParms(sequence,parameter_set_name)
+    
     names = cgnaplus_name_assignment(sequence)
     select_names = ["y*"]
     stiff = matrix_marginal_assignment(stiff,select_names,names,block_dim=6)
