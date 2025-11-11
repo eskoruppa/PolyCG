@@ -41,4 +41,6 @@ from .transforms.transform_algebra2group import algebra2group_lintrans, group2al
 ############################
 # Evals
 
+from .curv import dnacurv
+
 # IMPORT METHODS! <-----------
