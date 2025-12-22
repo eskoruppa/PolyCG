@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import scipy as sp
 from scipy.sparse import spmatrix
@@ -227,8 +229,10 @@ class RBPBondCoeffs(RBPCoeffsBase):
     def X0(self):
         return self.X0_1
 
-    def to_str(self):
+    def to_str(self, hybrid:bool=False):
         dstr = f'{self.type_id}'
+        if hybrid:
+            dstr += f' rbp'
         for i in range(LMP_RBP_DIMS):
             dstr += f' {self.X0_1[i]}'
         for i in range(LMP_RBP_DIMS):
@@ -245,8 +249,10 @@ class RBPAngleCoeffs(RBPCoeffsBase):
     def _compute_hash(self) -> int:
         return hash_anglecoeffs_128(self.X0_1, self.X0_2, self.stiff, decimals=self.decimals)
 
-    def to_str(self):
+    def to_str(self, hybrid:bool=False):
         dstr = f'{self.type_id}'
+        if hybrid:
+            dstr += f' rbp'
         for i in range(LMP_RBP_DIMS):
             dstr += f' {self.X0_1[i]}'
         for i in range(LMP_RBP_DIMS):
@@ -265,8 +271,10 @@ class RBPDihedralCoeffs(RBPCoeffsBase):
     def _compute_hash(self) -> int:
         return hash_dihedralcoeffs_128(self.X0_1, self.X0_2, self.stiff, decimals=self.decimals)
 
-    def to_str(self):
+    def to_str(self, hybrid:bool=False):
         dstr = f'{self.type_id}'
+        if hybrid:
+            dstr += f' rbp'
         for i in range(LMP_RBP_DIMS):
             dstr += f' {self.X0_1[i]}'
         for i in range(LMP_RBP_DIMS):
@@ -306,7 +314,7 @@ class RBPBond:
             cls.count = len(cls.instances)
             
     def to_str(self):
-        return f'{self.index} {self.id1} {self.id2}'
+        return f'{self.index} {self.bondcoeffs.type_id} {self.id1} {self.id2}'
 
 @dataclass
 class RBPAngle:
@@ -334,7 +342,7 @@ class RBPAngle:
             cls.count = len(cls.instances)
             
     def to_str(self):
-        return f'{self.index} {self.id1} {self.id2} {self.id3}'
+        return f'{self.index} {self.anglecoeffs.type_id} {self.id1} {self.id2} {self.id3}'
 
 
 @dataclass
@@ -364,7 +372,7 @@ class RBPDihedral:
             cls.count = len(cls.instances)
 
     def to_str(self):
-        return f'{self.index} {self.id1} {self.id2} {self.id3} {self.id4}'
+        return f'{self.index} {self.dihedralcoeffs.type_id} {self.id1} {self.id2} {self.id3} {self.id4}'
 
     
 ##################################################################################################################
@@ -384,31 +392,31 @@ class CGRBPTopology:
         # Check groundstate consistency
         if len(groundstate.shape) == 1:
             if len(groundstate) % 6 != 0:
-                raise ValueError('Invalid dimension of groundstate. Needs to be Nx6 (2 dimensional) or 6N (single dimension)')
+                raise ValueError('Invalid dimension of groundstate. Needs to be Nx6 (2-dimensional) or 6N (single dimension)')
             groundstate = groundstate.reshape((len(groundstate)//6,6))
         else:
             if len(groundstate[0]) != 6:
                 raise ValueError('Second dimension of groundstate needs to contain 6 entries ')
-        N = len(groundstate)
+        nbps = len(groundstate)
         
         # check stiffness matrix consistency
         if len(stiffmat.shape) != 2:
-            raise ValueError('Stiffness matrix needs to be two-dimensional.')
-        if stiffmat.shape[0] != N*6:
+            raise ValueError('Stiffness matrix must be two-dimensional.')
+        if stiffmat.shape[0] != nbps*6:
             raise ValueError('Dimension of stiffness matrix is incompatible with provided groundstate')
         
         
         stiffmat = stiffmat.toarray()
         
-        stiffmat[6:12,12:18] = stiffmat[0:6,6:12]
-        groundstate[1]       = groundstate[0]
-        groundstate[2]       = groundstate[0]
+        # stiffmat[6:12,12:18] = stiffmat[0:6,6:12]
+        # groundstate[1]       = groundstate[0]
+        # groundstate[2]       = groundstate[0]
         
         self.groundstate = groundstate
         self.stiffmat = stiffmat       
         self.coupling_range = coupling_range
         self.sequence = sequence
-        self.N = N
+        self.nbps = nbps
         self.decimals = decimals
         
         self.init_couplings()
@@ -419,34 +427,34 @@ class CGRBPTopology:
         bonds = []
         angles = []
         dihedrals = []
-    
+        
         # set bonds
-        for i in range(self.N):
+        for i in range(self.nbps):
             
             # bonds (local)
             id1 = i
             id2 = i+1
             X0 = self.groundstate[i]
             M0 = self.stiffmat[id1*6:id2*6,id1*6:id2*6]
-            bonds.append(RBPBond(id1,id2,RBPBondCoeffs.create(X0,M0,decimals=self.decimals)))
+            bonds.append(RBPBond(id1+1,id2+1,RBPBondCoeffs.create(X0,M0,decimals=self.decimals)))
             
             # angles (nearest neighbors)
             id3 = i+2
-            if self.coupling_range < 1 or id3 > self.N:
+            if self.coupling_range < 1 or id3 > self.nbps:
                 continue
                 
             X0_2 = self.groundstate[id2]
             M1 = self.stiffmat[id1*6:id2*6,id2*6:id3*6]
-            angles.append(RBPAngle(id1,id2,id3,RBPAngleCoeffs.create(X0,M1,gs2=X0_2,decimals=self.decimals)))
+            angles.append(RBPAngle(id1+1,id2+1,id3+1,RBPAngleCoeffs.create(X0,M1,gs2=X0_2,decimals=self.decimals)))
             
             for j in range(2,self.coupling_range+1):
                 id3 = i+j
                 id4 = i+j+1
-                if id4 > self.N:
+                if id4 > self.nbps:
                     continue
                 X0_2 = self.groundstate[id3]
                 Mj = self.stiffmat[id1*6:id2*6,id3*6:id4*6]
-                dihedrals.append(RBPDihedral(id1,id2,id3,id4,RBPDihedralCoeffs.create(X0,Mj,gs2=X0_2,decimals=self.decimals)))
+                dihedrals.append(RBPDihedral(id1+1,id2+1,id3+1,id4+1,RBPDihedralCoeffs.create(X0,Mj,gs2=X0_2,decimals=self.decimals)))
         
         
         bondtypes = []

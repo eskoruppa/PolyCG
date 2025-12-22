@@ -12,6 +12,8 @@ from typing import ClassVar
 from functools import cached_property
 
 from .cgrbp_methods.lmp_topol import CGRBPTopology
+from .cgrbp_methods.lmp_config import CGRBPConfigBuilder, CGRBPConfig
+from .cgrbp_methods.lmp_unit_conversion import RescaleUnits
 
 # load models
 from .cgnaplus import cgnaplus_bps_params
@@ -38,47 +40,70 @@ from .gen_params import gen_params
 def gen_datafile(
     filename: str,
     topology : CGRBPTopology,
-    config):
+    config: CGRBPConfig,
+    box: np.ndarray = None,
+    hybrid: bool = False):
     
     with open(filename,'w') as f:
-        
+        f.write(f'\n\n')
         # atoms
+        f.write(f'{len(config.positions)} atoms\n')
         f.write(f'{len(topology.bonds)} bonds\n')
         f.write(f'{len(topology.angles)} angles\n')
         f.write(f'{len(topology.dihedrals)} dihedrals\n')
-        # atom types
+        f.write(f'1 atom types\n')
         f.write(f'{len(topology.bondtypes)} bond types\n')
         f.write(f'{len(topology.angletypes)} angle types\n')
         f.write(f'{len(topology.dihedraltypes)} dihedral types\n')
-        # ellipsoids
-        
+        f.write(f'{config.nbp} ellipsoids\n')
         f.write('\n')
         
-        # xlo
-        # ylo
-        # zlo
+        if box is None:
+            box = config.extended_bounds(margin_fraction=0.05, square_box=True)
         
-        # masses
+        rbox = np.round(box,decimals=1)
         
-        # atoms
+        f.write(f'{rbox[0,0]} {rbox[0,1]} xlo xhi\n')
+        f.write(f'{rbox[1,0]} {rbox[1,1]} ylo yhi\n')
+        f.write(f'{rbox[2,0]} {rbox[2,1]} zlo zhi\n')
         
+
+        if len(topology.bondtypes) > 0:
+            f.write(f'\nMasses\n\n')
+            for mass_sting in config.mass_strings():
+                f.write(f'{mass_sting}\n')
+            f.write('\n')
         
+        if config.nbp > 0:
+            f.write(f'\nAtoms\n\n')
+            atomstrs = conf.atom_strings()
+            for atomstr in atomstrs:
+                f.write(f'{atomstr}\n')
+            f.write('\n')  
+            
+        if config.nbp > 0:
+            f.write(f'\nEllipsoids\n\n')
+            ellipsstrs = conf.ellipsoid_strings()
+            for ellipsstr in ellipsstrs:
+                f.write(f'{ellipsstr}\n')
+            f.write('\n')  
+            
         if len(topology.bondtypes) > 0:
             f.write(f'\nBond Coeffs\n\n')
             for bondtype in topology.bondtypes:
-                f.write(f'{bondtype.to_str()}\n')
+                f.write(f'{bondtype.to_str(hybrid=hybrid)}\n')
             f.write('\n')
 
         if len(topology.angletypes) > 0:
             f.write(f'\nAngle Coeffs\n\n')
             for angletype in topology.angletypes:
-                f.write(f'{angletype.to_str()}\n')
+                f.write(f'{angletype.to_str(hybrid=hybrid)}\n')
             f.write('\n')
 
         if len(topology.dihedraltypes) > 0:
             f.write(f'\nDihedral Coeffs\n\n')
             for dihedraltype in topology.dihedraltypes:
-                f.write(f'{dihedraltype.to_str()}\n')
+                f.write(f'{dihedraltype.to_str(hybrid=hybrid)}\n')
             f.write('\n')
 
         if len(topology.bonds) > 0:
@@ -99,16 +124,11 @@ def gen_datafile(
                 f.write(f'{dihedral.to_str()}\n')
             f.write('\n')
             
-
-        
-    
-    
-
-
-
-
+            
 
 if __name__ == "__main__":
+    
+    np.set_printoptions(precision=1,linewidth=300)
     
     parser = argparse.ArgumentParser(description="Generate PolyMC input files")
     parser.add_argument('-m',       '--model',              type=str, default = 'cgnaplus', choices=['cgnaplus','lankas','olson'])
@@ -179,7 +199,32 @@ if __name__ == "__main__":
         stiff   = params['stiff']
         gs      = params['gs']
         
+        
+    rescale = RescaleUnits(length_factor=1/3.4)
+    gs,stiff = rescale.rescale_model(gs,stiff)
+    
+    gs[:,0] = np.random.uniform(-0.3,0.3,len(gs))
+    gs[:,1] = np.random.uniform(-0.3,0.3,len(gs))
+    gs[:,2] = np.random.uniform(-0.6,0.6,len(gs))
+    gs[:,3] = np.random.uniform(-0.3,0.3,len(gs))
+    gs[:,4] = np.random.uniform(-0.3,0.3,len(gs))
+    gs[:,5] += np.random.uniform(-0.5,0.5,len(gs))
+
+
+    print(gs)
+    
+
     topol = CGRBPTopology(gs,stiff,coupling_range=coupling_range,decimals=decimals)
+    # config = CGRBPConfigBuilder(topol)
+    # config.straight_with_twist()
+    
+    conf = CGRBPConfigBuilder.straight_with_twist(topol,mass=1)
+    box = conf.extended_bounds(0.2,square_box=True)
+    
+    box *= 4
     
     filename = 'test.data'
-    gen_datafile(filename,topol,None)
+    gen_datafile(filename,topol,conf,hybrid=False,box=box)
+    
+    stifffn = 'teststiff.npy'
+    np.save(stifffn,stiff.toarray())
