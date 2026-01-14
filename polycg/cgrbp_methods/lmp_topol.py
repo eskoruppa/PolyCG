@@ -21,23 +21,32 @@ LMP_RBP_DIMS = 6
 def hash_bondcoeffs_128(
     vec: np.ndarray, 
     mat: np.ndarray,
-    decimals: int | None = None) -> int:
+    decimals: int | None = None,
+    extra: np.ndarray | None = None,
+    ) -> int:
     assert mat.shape == (LMP_RBP_DIMS,LMP_RBP_DIMS)
     assert vec.shape == (LMP_RBP_DIMS,)
     if decimals is not None:
         mat = np.round(mat, decimals=decimals)
         vec = np.round(vec, decimals=decimals)
+        if extra is not None:
+            extra = np.round(extra, decimals=decimals)
     # 128-bit digest (16 bytes)
     h = hashlib.blake2s(digest_size=16)
     h.update(mat.tobytes(order="C"))
     h.update(vec.tobytes(order="C"))
+    if extra is not None: 
+        extra = np.asarray(extra).ravel()
+        h.update(extra.tobytes(order="C"))
     return int.from_bytes(h.digest(), byteorder="big")
 
 def hash_anglecoeffs_128(
     vec1: np.ndarray,
     vec2: np.ndarray,
     mat: np.ndarray,
-    decimals: int | None = None) -> int:
+    decimals: int | None = None,
+    extra: np.ndarray | None = None
+    ) -> int:
     assert mat.shape == (LMP_RBP_DIMS,LMP_RBP_DIMS)
     assert vec1.shape == (LMP_RBP_DIMS,)
     assert vec2.shape == (LMP_RBP_DIMS,)
@@ -45,18 +54,25 @@ def hash_anglecoeffs_128(
         mat = np.round(mat, decimals=decimals)
         vec1 = np.round(vec1, decimals=decimals)
         vec2 = np.round(vec2, decimals=decimals)
+        if extra is not None:
+            extra = np.round(extra, decimals=decimals)
     # 128-bit digest (16 bytes)
     h = hashlib.blake2s(digest_size=16)
     h.update(mat.tobytes(order="C"))
     h.update(vec1.tobytes(order="C"))
     h.update(vec2.tobytes(order="C"))
+    if extra is not None: 
+        extra = np.asarray(extra).ravel()
+        h.update(extra.tobytes(order="C"))
     return int.from_bytes(h.digest(), byteorder="big")
 
 def hash_dihedralcoeffs_128(
     vec1: np.ndarray,
     vec2: np.ndarray,
     mat: np.ndarray,
-    decimals: int | None = None) -> int:
+    decimals: int | None = None,
+    extra: np.ndarray | None = None
+    ) -> int:
     assert mat.shape == (LMP_RBP_DIMS,LMP_RBP_DIMS)
     assert vec1.shape == (LMP_RBP_DIMS,)
     assert vec2.shape == (LMP_RBP_DIMS,)
@@ -64,21 +80,31 @@ def hash_dihedralcoeffs_128(
         mat = np.round(mat, decimals=decimals)
         vec1 = np.round(vec1, decimals=decimals)
         vec2 = np.round(vec2, decimals=decimals)
+        if extra is not None:
+            extra = np.round(extra, decimals=decimals)
     # 128-bit digest (16 bytes)
     h = hashlib.blake2s(digest_size=16)
     h.update(mat.tobytes(order="C"))
     h.update(vec1.tobytes(order="C"))
     h.update(vec2.tobytes(order="C"))
+    if extra is not None: 
+        extra = np.asarray(extra).ravel()
+        h.update(extra.tobytes(order="C"))
     return int.from_bytes(h.digest(), byteorder="big")
 
-def canonical_key(mat:  np.ndarray,
-                  vec1: np.ndarray,
-                  vec2: np.ndarray | None = None,
-                  decimals: int | None = None) -> tuple:
+def canonical_key(
+    mat: np.ndarray,
+    vec1: np.ndarray,
+    vec2: np.ndarray | None = None,
+    decimals: int | None = None,
+    extra: np.ndarray | None = None,
+) -> tuple:
     assert mat.shape == (LMP_RBP_DIMS, LMP_RBP_DIMS)
     assert vec1.shape == (LMP_RBP_DIMS,)
     if vec2 is not None:
         assert vec2.shape == (LMP_RBP_DIMS,)
+    if extra is not None:
+        extra = np.asarray(extra).ravel()
 
     if decimals is None:
         mat_key  = mat.view(np.int64).ravel()
@@ -87,6 +113,9 @@ def canonical_key(mat:  np.ndarray,
         if vec2 is not None:
             vec2_key = vec2.view(np.int64)
             parts.append(vec2_key)
+        if extra is not None:
+            extra_key = extra.view(np.int64)
+            parts.append(extra_key)
         out = []
         for p in parts:
             out.extend(p.tolist())
@@ -100,7 +129,10 @@ def canonical_key(mat:  np.ndarray,
     if vec2 is not None:
         q_vec2 = np.rint(vec2 * scale).astype(np.int64)
         parts.append(q_vec2)
-
+    if extra is not None:
+        q_extra = np.rint(extra * scale).astype(np.int64)
+        parts.append(q_extra)
+        
     out = []
     for p in parts:
         out.extend(p.tolist())
@@ -128,11 +160,14 @@ class RBPCoeffsBase(ABC):
     instances: list["RBPCoeffsBase"] = []
     registry: dict[tuple, "RBPCoeffsBase"] = {}
 
-    def __init__(self,
-                 gs1: np.ndarray,
-                 stiffmat: np.ndarray | spmatrix,
-                 decimals: int | None,
-                 gs2: np.ndarray | None = None):
+    def __init__(
+        self,
+        gs1: np.ndarray,
+        stiffmat: np.ndarray | spmatrix,
+        decimals: int | None,
+        gs2: np.ndarray | None = None,
+        additional_coeffs: np.ndarray | None = None,
+    ):
         cls = type(self)
         cls.instances.append(self)
         cls.type_count = len(cls.instances)
@@ -144,38 +179,56 @@ class RBPCoeffsBase(ABC):
         self.X0_1 = to_dense(gs1)
         self.stiff = to_dense(stiffmat)
         self.X0_2 = to_dense(gs2)
+        self.extra = to_dense(additional_coeffs)
+        if self.extra is not None:
+            self.extra = np.asarray(self.extra).ravel()
 
         if decimals is not None:
             self.X0_1 = np.round(self.X0_1, decimals=decimals)
             if self.X0_2 is not None:
                 self.X0_2 = np.round(self.X0_2, decimals=decimals)
             self.stiff = np.round(self.stiff, decimals=decimals)
+            if self.extra is not None:
+                self.extra = np.round(self.extra, decimals=decimals)
 
         self.hash = self._compute_hash()
         cls.registry[self.canonical_key] = self
 
     @classmethod
-    def create(cls,
-               gs1: np.ndarray,
-               stiffmat: np.ndarray | spmatrix,
-               decimals: int | None,
-               gs2: np.ndarray | None = None):
+    def create(
+        cls,
+        gs1: np.ndarray,
+        stiffmat: np.ndarray | spmatrix,
+        decimals: int | None,
+        gs2: np.ndarray | None = None,
+        *,
+        check_existing: bool = True,
+        additional_coeffs: np.ndarray | None = None,
+    ):
         tmp_X0_1 = to_dense(gs1)
         tmp_stiff = to_dense(stiffmat)
         tmp_X0_2 = to_dense(gs2)
+        tmp_extra = to_dense(additional_coeffs)
+        if tmp_extra is not None:
+            tmp_extra = np.asarray(tmp_extra).ravel()
 
         if decimals is not None:
             tmp_X0_1 = np.round(tmp_X0_1, decimals=decimals)
             if tmp_X0_2 is not None:
                 tmp_X0_2 = np.round(tmp_X0_2, decimals=decimals)
             tmp_stiff = np.round(tmp_stiff, decimals=decimals)
+            if tmp_extra is not None:
+                tmp_extra = np.round(tmp_extra, decimals=decimals)
+                
+        key = canonical_key(
+            tmp_stiff, tmp_X0_1, vec2=tmp_X0_2, decimals=decimals, extra=tmp_extra
+        )
+        if check_existing:
+            existing = cls.registry.get(key)
+            if existing is not None:
+                return existing
 
-        key = canonical_key(tmp_stiff, tmp_X0_1, vec2=tmp_X0_2, decimals=decimals)
-        existing = cls.registry.get(key)
-        if existing is not None:
-            return existing
-
-        return cls(gs1, stiffmat, decimals, gs2=gs2)
+        return cls(gs1, stiffmat, decimals, gs2=gs2, additional_coeffs=additional_coeffs)
 
     @abstractmethod
     def _compute_hash(self) -> int:
@@ -183,10 +236,13 @@ class RBPCoeffsBase(ABC):
 
     @cached_property
     def canonical_key(self) -> tuple:
-        return canonical_key(self.stiff,
-                             self.X0_1,
-                             vec2=self.X0_2,
-                             decimals=self.decimals)
+        return canonical_key(
+            self.stiff,
+            self.X0_1,
+            vec2=self.X0_2,
+            decimals=self.decimals,
+            extra=self.extra,
+        )
 
     def delete(self):
         if self._deleted:
@@ -203,6 +259,7 @@ class RBPCoeffsBase(ABC):
         self.X0_1 = None
         self.X0_2 = None
         self.stiff = None
+        self.extra = None
         self.hash = None
         self._deleted = True
 
@@ -223,7 +280,7 @@ class RBPBondCoeffs(RBPCoeffsBase):
     registry: dict[tuple, "RBPBondCoeffs"] = {}
 
     def _compute_hash(self) -> int:
-        return hash_bondcoeffs_128(self.X0_1, self.stiff, decimals=self.decimals)
+        return hash_bondcoeffs_128(self.X0_1, self.stiff, decimals=self.decimals, extra=self.extra)
 
     @property
     def X0(self):
@@ -233,6 +290,10 @@ class RBPBondCoeffs(RBPCoeffsBase):
         dstr = f'{self.type_id}'
         if hybrid:
             dstr += f' rbp'
+            
+        if self.extra is not None:
+            for x in self.extra:
+                dstr += f' {x}'
         for i in range(LMP_RBP_DIMS):
             dstr += f' {self.X0_1[i]}'
         for i in range(LMP_RBP_DIMS):
@@ -247,12 +308,16 @@ class RBPAngleCoeffs(RBPCoeffsBase):
     registry: dict[tuple, "RBPAngleCoeffs"] = {}
 
     def _compute_hash(self) -> int:
-        return hash_anglecoeffs_128(self.X0_1, self.X0_2, self.stiff, decimals=self.decimals)
+        return hash_anglecoeffs_128(self.X0_1, self.X0_2, self.stiff, decimals=self.decimals, extra=self.extra)
 
     def to_str(self, hybrid:bool=False):
         dstr = f'{self.type_id}'
         if hybrid:
             dstr += f' rbp'
+            
+        if self.extra is not None:
+            for x in self.extra:
+                dstr += f' {x}'
         for i in range(LMP_RBP_DIMS):
             dstr += f' {self.X0_1[i]}'
         for i in range(LMP_RBP_DIMS):
@@ -269,12 +334,16 @@ class RBPDihedralCoeffs(RBPCoeffsBase):
     registry: dict[tuple, "RBPDihedralCoeffs"] = {}
 
     def _compute_hash(self) -> int:
-        return hash_dihedralcoeffs_128(self.X0_1, self.X0_2, self.stiff, decimals=self.decimals)
+        return hash_dihedralcoeffs_128(self.X0_1, self.X0_2, self.stiff, decimals=self.decimals, extra=self.extra)
 
     def to_str(self, hybrid:bool=False):
         dstr = f'{self.type_id}'
         if hybrid:
             dstr += f' rbp'
+            
+        if self.extra is not None:
+            for x in self.extra:
+                dstr += f' {x}'
         for i in range(LMP_RBP_DIMS):
             dstr += f' {self.X0_1[i]}'
         for i in range(LMP_RBP_DIMS):
@@ -386,7 +455,12 @@ class CGRBPTopology:
                  stiffmat: np.ndarray | spmatrix,
                  coupling_range: int = 2,
                  sequence: str = None,
-                 decimals: int | None = None
+                 decimals: int | None = None,
+                 *,
+                 check_existing_types: bool = True,
+                 extra_bond: np.ndarray | None = None,
+                 extra_angle: np.ndarray | None = None,
+                 extra_dihedral: np.ndarray | None = None,
                  ):
         
         # Check groundstate consistency
@@ -408,16 +482,17 @@ class CGRBPTopology:
         
         stiffmat = stiffmat.toarray()
         
-        # stiffmat[6:12,12:18] = stiffmat[0:6,6:12]
-        # groundstate[1]       = groundstate[0]
-        # groundstate[2]       = groundstate[0]
-        
         self.groundstate = groundstate
         self.stiffmat = stiffmat       
         self.coupling_range = coupling_range
         self.sequence = sequence
         self.nbps = nbps
         self.decimals = decimals
+        self.check_existing = check_existing_types
+        
+        self.extra_bond = extra_bond
+        self.extra_angle = extra_angle
+        self.extra_dihedral = extra_dihedral
         
         self.init_couplings()
         
@@ -436,7 +511,7 @@ class CGRBPTopology:
             id2 = i+1
             X0 = self.groundstate[i]
             M0 = self.stiffmat[id1*6:id2*6,id1*6:id2*6]
-            bonds.append(RBPBond(id1+1,id2+1,RBPBondCoeffs.create(X0,M0,decimals=self.decimals)))
+            bonds.append(RBPBond(id1+1,id2+1,RBPBondCoeffs.create(X0,M0,decimals=self.decimals,check_existing=self.check_existing,additional_coeffs=self.extra_bond)))
             
             # angles (nearest neighbors)
             id3 = i+2
@@ -445,7 +520,7 @@ class CGRBPTopology:
                 
             X0_2 = self.groundstate[id2]
             M1 = self.stiffmat[id1*6:id2*6,id2*6:id3*6]
-            angles.append(RBPAngle(id1+1,id2+1,id3+1,RBPAngleCoeffs.create(X0,M1,gs2=X0_2,decimals=self.decimals)))
+            angles.append(RBPAngle(id1+1,id2+1,id3+1,RBPAngleCoeffs.create(X0,M1,gs2=X0_2,decimals=self.decimals,check_existing=self.check_existing,additional_coeffs=self.extra_angle)))
             
             for j in range(2,self.coupling_range+1):
                 id3 = i+j
@@ -454,7 +529,7 @@ class CGRBPTopology:
                     continue
                 X0_2 = self.groundstate[id3]
                 Mj = self.stiffmat[id1*6:id2*6,id3*6:id4*6]
-                dihedrals.append(RBPDihedral(id1+1,id2+1,id3+1,id4+1,RBPDihedralCoeffs.create(X0,Mj,gs2=X0_2,decimals=self.decimals)))
+                dihedrals.append(RBPDihedral(id1+1,id2+1,id3+1,id4+1,RBPDihedralCoeffs.create(X0,Mj,gs2=X0_2,decimals=self.decimals,check_existing=self.check_existing,additional_coeffs=self.extra_dihedral)))
         
         
         bondtypes = []

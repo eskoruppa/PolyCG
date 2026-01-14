@@ -67,12 +67,11 @@ class CGRBPConfig:
             for i in range(len(bounds)):
                 if dim[i] < mdim:
                     ext = (mdim-dim[i])*0.5
-                    print(f'ext = {ext}')
                     bounds[i,0] -= ext
                     bounds[i,1] += ext
         return bounds
     
-    def atom_strings(self):
+    def atom_strings(self): 
         strs = []
         for i,pos in enumerate(self.positions):
             pstr = f'{i+1} 1 {pos[0]} {pos[1]} {pos[2]} 1 1 1'
