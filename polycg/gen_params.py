@@ -167,7 +167,7 @@ def gen_config(params: np.ndarray):
 
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser(description="Generate PolyMC input files")
+    parser = argparse.ArgumentParser(description="Generate ground state and stiffness matrix")
     parser.add_argument('-m',       '--model',              type=str, default = 'cgnaplus', choices=['cgnaplus','lankas','olson'])
     parser.add_argument('-cg',      '--composite_size',     type=int, default = 1)
     parser.add_argument('-seqfn',   '--sequence_file',      type=str, default = None)
