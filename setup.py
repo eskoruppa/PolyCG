@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 # TO: setup installer
 
 setup(name='PolyCG',
-      version='0.0.1',
+      version='0.1.0',
       description='Module to coarse-grain elastic parameters of DNA models',
       url='https://github.com/eskoruppa/PolyCG',
       author='Enrico Skoruppa',
