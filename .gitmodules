@@ -19,3 +19,4 @@
 [submodule "polycg/models/cgNA_plus"]
 	path = polycg/models/cgNA_plus
 	url = git@github.com:eskoruppa/cgNA_plus
+	branch = main
