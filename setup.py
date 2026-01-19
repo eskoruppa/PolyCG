@@ -10,4 +10,4 @@ setup(name='PolyCG',
       author_email='esk dot phys at gmail dot com',
       license='GNU2',
       packages=find_packages(),
-      zip_safe=False) 
+      zip_safe=False)

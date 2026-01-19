@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys, os
 import argparse
 import numpy as np
@@ -35,7 +37,11 @@ from .gen_params import gen_params
 def gen_database_file(
     filename: str,
     topology: CGRBPTopology,
-    add_extension: bool = True
+    add_extension: bool = True,
+    seq: str | None = None,
+    composite_size: int = 1,
+    start_id: int | None = None,
+    end_id: int | None = None 
     ) -> None:
     
     ext = '.db'
@@ -46,7 +52,19 @@ def gen_database_file(
         
         f.write(f'{topology.nbps + 1} triads\n\n')
         
-
+        if seq is not None:
+            if end_id is not None:
+                seq = seq[:end_id]
+            if start_id is not None:
+                seq = seq[start_id:]
+            
+            pseqs = [seq[ii*composite_size:(ii+1)*composite_size] for ii in range(topology.nbps+1)]
+            pseqs[-1] = pseqs[-1][:1]
+            
+            f.write(f'\nSeqs\n\n')
+            for i,pseq in enumerate(pseqs):
+                f.write(f'{i+1} {pseq.upper()}\n')
+        
         if len(topology.bondtypes) > 0:
             f.write(f'\nBond Coeffs\n\n')
             for bondtype in topology.bondtypes:
@@ -365,10 +383,10 @@ if __name__ == "__main__":
     ########## RESCALING #############################
     ##################################################
     
-    gs[:,0] = 0
-    gs[:,1] = 0
-    gs[:,3] = 0
-    gs[:,4] = 0
+    # gs[:,0] = 0
+    # gs[:,1] = 0
+    # gs[:,3] = 0
+    # gs[:,4] = 0
     
     check_existing_types = False
     
@@ -381,8 +399,8 @@ if __name__ == "__main__":
     box = conf.extended_bounds(0.2,square_box=True)
     
     gen_datafile(outname,topol,conf,hybrid=False,box=box)
-    gen_database_file(outname,topol)
-    
+    gen_database_file(outname,topol,seq=seq,composite_size=composite_size,start_id=start_id,end_id=end_id)
+        
     if safe_stiffmat:
         stifffn = outname + '_stiff.npy'
         np.save(stifffn,stiff.toarray())
