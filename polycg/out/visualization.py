@@ -3,7 +3,7 @@ import numpy as np
 from ..IOPolyMC import iopolymc as iopmc
 from ..genconf import gen_config
 
-def cgvisual(basefn: str, params: np.ndarray, seq: str, cg: int, startid: int = 0, bead_radius: float = None, disc_len: float=0.34):
+def cgvisual(basefn: str, params: np.ndarray, seq: str, cg: int, startid: int = 0, bead_radius: float = None, disc_len: float=0.34, include_bps_triads: bool = False):
     
     # generate configuration
     taus = gen_config(params,disc_len=disc_len)
@@ -21,6 +21,12 @@ def cgvisual(basefn: str, params: np.ndarray, seq: str, cg: int, startid: int = 
     cgtaus = taus[startid::cg]
     triads2bild(bildfn, cgtaus, alpha=1., scale=1, nm2aa=True, decimals=2)
     
+    bps_triads_bildfn = None
+    if include_bps_triads and cg > 1:
+        bps_triads_bildfn = basefn + '_bps_triads.bild'
+        triads2bild(bps_triads_bildfn, taus, alpha=1., scale=1, nm2aa=True, decimals=2)
+        
+    
     # create chimera cxc file
     cxcfn = basefn + '.cxc'
     if bead_radius > 0:
@@ -29,7 +35,7 @@ def cgvisual(basefn: str, params: np.ndarray, seq: str, cg: int, startid: int = 
         spheres[:,3] = bead_radius
     else:
        spheres = None
-    chimeracxc(cxcfn, pdbfn, triadfn=bildfn, spheres=spheres, nm2aa= True, decimals=2)
+    chimeracxc(cxcfn, pdbfn, triadfn=bildfn, spheres=spheres, nm2aa= True, decimals=2, additional_triadfn=bps_triads_bildfn)
     
     cgxyzfn = basefn + '_cg.xyz'
     xyz = {
@@ -39,7 +45,7 @@ def cgvisual(basefn: str, params: np.ndarray, seq: str, cg: int, startid: int = 
     iopmc.write_xyz(cgxyzfn,xyz)
 
    
-def chimeracxc(fn: str, pdbfn: str, triadfn: str = None, spheres: np.ndarray = None, nm2aa: bool = True, decimals=2):
+def chimeracxc(fn: str, pdbfn: str, triadfn: str = None, spheres: np.ndarray = None, nm2aa: bool = True, decimals=2, additional_triadfn: str = None):
     if os.path.splitext(fn)[-1].lower() != '.cxc':
         fn += '.cxc'
     
@@ -76,6 +82,13 @@ def chimeracxc(fn: str, pdbfn: str, triadfn: str = None, spheres: np.ndarray = N
             triadsid = modelnum
             f.write(f'\n# load triads BILD\n')
             f.write(f'open {os.path.basename(triadfn)}\n') 
+            
+        # open triads
+        if additional_triadfn is not None:
+            modelnum += 1 
+            add_triadsid = modelnum
+            f.write(f'\n# load additional triads BILD\n')
+            f.write(f'open {os.path.basename(additional_triadfn)}\n') 
         
         if spheres is not None:
             nm2aafac = 1

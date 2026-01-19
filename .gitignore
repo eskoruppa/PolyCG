@@ -30,10 +30,10 @@
 **.egg-info/
 
 # changes in subpackages
-**/cgNA_plus/
-**/SO3/
-**/IOPolyMC/
-**/pyConDec
+# **/cgNA_plus/
+# **/SO3/
+# **/IOPolyMC/
+# **/pyConDec
 
 # sampling methods
 **sample_*.py
@@ -51,3 +51,6 @@
 **Old*/
 **OLD/
 **OLD*/
+
+# ignore test file
+*janseq_1kbp*

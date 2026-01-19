@@ -167,7 +167,7 @@ def gen_config(params: np.ndarray):
 
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser(description="Generate PolyMC input files")
+    parser = argparse.ArgumentParser(description="Generate ground state and stiffness matrix")
     parser.add_argument('-m',       '--model',              type=str, default = 'cgnaplus', choices=['cgnaplus','lankas','olson'])
     parser.add_argument('-cg',      '--composite_size',     type=int, default = 1)
     parser.add_argument('-seqfn',   '--sequence_file',      type=str, default = None)
@@ -179,6 +179,8 @@ if __name__ == "__main__":
     parser.add_argument('-eid',     '--end_id',             type=int, default=None) 
     parser.add_argument('-o',       '--output_basename',    type=str, default = None, required=False)
     parser.add_argument('-nv',      '--no_visualization',   action='store_true') 
+    parser.add_argument('-bpst',   '--include_bps_triads', action='store_true') 
+    
     # parser.add_argument('-xyz',     '--gen_xyz',            action='store_true') 
     # parser.add_argument('-pdb',     '--gen_pdb',            action='store_true') 
      
@@ -243,5 +245,5 @@ if __name__ == "__main__":
     # visualization
     if not args.no_visualization:
         visdir = base_fn
-        cgvisual(visdir,params['gs'],seq,composite_size,start_id,bead_radius=composite_size*0.34*0.5)
+        cgvisual(visdir,params['gs'],seq,composite_size,start_id,bead_radius=composite_size*0.34*0.5,include_bps_triads=args.include_bps_triads)
     
