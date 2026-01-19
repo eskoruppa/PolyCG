@@ -39,6 +39,10 @@ from .transforms.transform_algebra2group import algebra2group_stiffmat, group2al
 from .transforms.transform_algebra2group import algebra2group_lintrans, group2algebra_lintrans
 
 ############################
+# Visualizations
+from .out.visualization import cgvisual
+
+############################
 # Evals
 
 from .curv import dnacurv
