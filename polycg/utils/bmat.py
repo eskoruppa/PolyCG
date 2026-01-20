@@ -1,9 +1,10 @@
 from __future__ import annotations
+
 import numpy as np
 import scipy as sp
-import sys
-from typing import List, Tuple, Callable, Any, Dict
+from typing import List, Tuple
 from scipy.sparse import lil_matrix, csc_matrix
+
 
 # from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix, bsr_matrix, lil_matrix
 
@@ -13,26 +14,69 @@ from scipy.sparse import lil_matrix, csc_matrix
 
 
 class BlockOverlapMatrix:
-    # ndims: int
-    # average: bool
-    # matblocks: List[BOMat]
-    # ranges: List[List[int]]
+    """
+    A sparse-like matrix representation assembled from overlapping dense blocks.
 
-    # xlo: int
-    # xhi: int
-    # ylo: int
-    # yhi: int
+    This class stores a list of dense submatrices ("blocks") with associated
+    index ranges. Querying a region returns the weighted average of all blocks
+    that overlap that region. This is useful for progressively constructing
+    very large matrices (e.g., stiffness matrices) from local contributions
+    while blending boundary effects via overlap averaging.
 
-    # periodic: bool
-    # fixed_size: bool
-    # check_bounds: bool
-    # check_bounds_on_read: bool
+    Coordinates and indexing
+    ------------------------
+    All indices (x1, x2, y1, y2) follow Python slice conventions:
+        - ranges are half-open: [x1, x2) and [y1, y2)
+        - x1 < x2 and y1 < y2 are required
+        - negative indexing relative to the upper bound is not supported
 
-    # xrge: int
-    # yrge: int
-    # shape: tuple[int, int]
+    Blocks are added in global coordinates. The matrix "domain" is defined by
+    (xlo, xhi) and (ylo, yhi). The matrix shape is:
+        shape = (xhi - xlo, yhi - ylo)
 
-    ###################################################################################
+    Overlap handling
+    ----------------
+    When multiple blocks contribute to the same entry (i, j), the returned value
+    is the weighted average of those contributions:
+        A(i,j) = sum_k w_k * block_k(i,j) / sum_k w_k
+    where the sum runs over all blocks overlapping (i,j). By default each block
+    has uniform weight 1 (weights can be extended).
+
+    Periodic behavior
+    -----------------
+    If periodic=True, the matrix is interpreted as defined on a torus with
+    periods:
+        xrge = xhi - xlo
+        yrge = yhi - ylo
+
+    Important: blocks are NOT physically split or relocated when they cross a
+    boundary. Instead, periodicity is implemented at access time:
+
+      - When adding blocks, the lower bounds (x1, y1) are wrapped into the base
+        domain [xlo, xhi) x [ylo, yhi) by shifting the entire block by an
+        integer multiple of the period. The upper bounds (x2, y2) are shifted
+        by the same amount, so the block extent is preserved. As a result, a
+        stored block may still have x2 > xhi and/or y2 > yhi.
+
+      - When extracting (reading) a matrix region, each stored block contributes
+        not only from its base placement but also from periodic "images" shifted
+        by ±n*xrge and ±m*yrge (integers n, m) whenever those images overlap the
+        requested region. This is what connects the "front" and "back" of the
+        matrix for ring-closure / periodic boundary conditions.
+
+    Invariants and assumptions
+    --------------------------
+    - For periodic matrices, xhi > xlo and yhi > ylo must hold (positive period).
+    - Intended use is local blocks (extent not exceeding the period in periodic
+      mode), consistent with banded / local stiffness matrices.
+    - fixed_size=True enforces that all reads/writes remain within the bounds.
+      If fixed_size=False and periodic=False, bounds grow as blocks are added.
+
+    Notes
+    -----
+    This object is designed for incremental assembly and averaging. It does not
+    implement true matrix multiplication semantics; scalar scaling is supported.
+    """
 
     def __init__(
         self,
@@ -42,10 +86,10 @@ class BlockOverlapMatrix:
         xhi: int = None,
         ylo: int = None,
         yhi: int = None,
-        periodic: bool=False,
-        fixed_size: bool=False,
-        check_bounds: bool=True,
-        check_bounds_on_read: bool=True
+        periodic: bool = False,
+        fixed_size: bool = False,
+        check_bounds: bool = True,
+        check_bounds_on_read: bool = True
     ):
         self.ndims = ndims
         self.average = average
@@ -76,10 +120,16 @@ class BlockOverlapMatrix:
         self.xhi = set_val(xhi)
         self.ylo = set_val(ylo)
         self.yhi = set_val(yhi)
+        
+        if self.periodic or self.fixed_size:
+            if self.xhi <= self.xlo:
+                raise ValueError(f"xhi ({self.xhi}) must be > xlo ({self.xlo})")
+            if self.yhi <= self.ylo:
+                raise ValueError(f"yhi ({self.yhi}) must be > ylo ({self.ylo})")
 
-        self.xrge = self.xhi - self.xlo
-        self.yrge = self.yhi - self.ylo
-        self.shape = (self.xrge, self.yrge)
+        # self.xrge = self.xhi - self.xlo
+        # self.yrge = self.yhi - self.ylo
+        # self.shape = (self.xrge, self.yrge)
 
     ###################################################################################
 
@@ -104,7 +154,7 @@ class BlockOverlapMatrix:
 
     ###################################################################################
 
-    def _valid_arg_order(self, x1: int, x2: int, y1: int, y2: int) -> bool:
+    def _valid_arg_order(self, x1: int, x2: int, y1: int, y2: int) -> None:
         if x1 >= x2:
             raise ValueError(
                 f"lower bound x1 ({x1}) needs to be strictly smaller than upper bound x2 ({x2}). Negative indexing relative to \
@@ -141,9 +191,9 @@ class BlockOverlapMatrix:
             self.ylo = y1
         if y2 > self.yhi:
             self.yhi = y2
-        self.xrge = self.xhi - self.xlo
-        self.yrge = self.yhi - self.ylo
-        self.shape = (self.xrge, self.yrge)
+        # self.xrge = self.xhi - self.xlo
+        # self.yrge = self.yhi - self.ylo
+        # self.shape = (self.xrge, self.yrge)
 
     ###################################################################################
 
@@ -171,11 +221,24 @@ class BlockOverlapMatrix:
 
     ###################################################################################
 
-    def __len__(self) -> Tuple[int, int]:
+    def __len__(self) -> int:
         return self.xhi - self.xlo
 
     def __contains__(self, elem: BOMat) -> bool:
         return elem in self.matblocks
+    
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Return the matrix shape as (nx, ny)."""
+        return (self.xhi - self.xlo, self.yhi - self.ylo)
+    
+    @property
+    def xrge(self) -> int:
+        return self.xhi - self.xlo
+
+    @property
+    def yrge(self) -> int:
+        return self.yhi - self.ylo
 
     ###################################################################################
 
@@ -210,9 +273,8 @@ class BlockOverlapMatrix:
 
     ###################################################################################
 
-    def __setitem__(
-        self, ids: Tuple[slice] | int, mat: np.ndarray | float | int
-    ) -> None:
+    def __setitem__(self, ids: Tuple[slice, slice], mat: np.ndarray | float | int) -> None:
+        
         if not isinstance(ids, tuple):
             raise ValueError(
                 f"Expected tuple of two slices, but received argument of type {type(ids)}."
@@ -240,6 +302,10 @@ class BlockOverlapMatrix:
             if block == new_block:
                 continue
 
+            # skip blocks that cannot overlap new_block at all
+            if block.x2 <= x1 or block.x1 >= x2 or block.y2 <= y1 or block.y1 >= y2:
+                continue
+
             extr_mat = np.zeros((block.x2 - block.x1, block.y2 - block.y1))
             extr_cnt = np.zeros(extr_mat.shape)
             extr_mat, extr_cnt = new_block.extract(
@@ -251,6 +317,7 @@ class BlockOverlapMatrix:
                 block.y2,
                 use_weight=False,
             )
+            extr_cnt = np.clip(extr_cnt, 0, 1)
             block.mat = block.mat * (1 - extr_cnt) + extr_mat
 
     ###################################################################################
@@ -266,7 +333,7 @@ class BlockOverlapMatrix:
 
     ###################################################################################
 
-    def __getitem__(self, ids: Tuple[slice] | int) -> float | np.ndarray:
+    def __getitem__(self, ids: Tuple[slice, slice]) -> float | np.ndarray:
         x1, x2, y1, y2 = self._slice2ids(ids)
         if self.check_bounds_on_read:
             self._check_bounds(x1, x2, y1, y2)
@@ -282,14 +349,14 @@ class BlockOverlapMatrix:
         return self[self.xlo : self.xhi, self.ylo : self.yhi]
     
     def __mul__(self, B):
-        if hasattr(B, "__len__"):
+        if not np.isscalar(B):
             raise ValueError(f'Matrix multiplication is currently not supported for instances of BlockOverlapMatrix.')
         for block in self.matblocks:
             block.mat *= B
         return self
     
     def __rmul__(self, B):
-        if hasattr(B, "__len__"):
+        if not np.isscalar(B):
             raise ValueError(f'Matrix multiplication is currently not supported for instances of BlockOverlapMatrix.')
         for block in self.matblocks:
             block.mat *= B
@@ -297,30 +364,75 @@ class BlockOverlapMatrix:
     
     #######################################################################################
 
+    # def to_sparse(self):
+    #     sparse = lil_matrix(self.shape)
+    #     for block in self.matblocks:
+    #         sx1 = block.x1 - self.xlo
+    #         sx2 = block.x2 - self.xlo
+    #         sy1 = block.y1 - self.ylo
+    #         sy2 = block.y2 - self.ylo
+
+    #         if sx1 < 0 or sy1 < 0 or sx2 > self.shape[0] or sy2 > self.shape[1]:
+    #             raise ValueError("Block indices out of internal sparse bounds. Check xlo/ylo shifting logic.")
+
+    #         sparse[sx1:sx2, sy1:sy2] = self[block.x1:block.x2, block.y1:block.y2]
+    #     return sparse.tocsc()
+    
+    
     def to_sparse(self):
-        sprs = lil_matrix(self.shape)
+        """
+        Assemble the full matrix into a sparse representation.
+
+        This method has the same semantics as extracting the full matrix via
+        `self[self.xlo:self.xhi, self.ylo:self.yhi]`, but stores the result as a
+        sparse matrix. Block contributions are accumulated and averaged in overlap
+        regions.
+
+        If the matrix is periodic, blocks that extend beyond the base domain are
+        wrapped via periodic images using each block’s extraction logic.
+        """
+        nx, ny = self.shape
+        # Accumulate numerator and counts
+        S = lil_matrix((nx, ny))
+        C = lil_matrix((nx, ny))
         for block in self.matblocks:
-            sprs[block.x1:block.x2,block.y1:block.y2] = self[block.x1:block.x2,block.y1:block.y2]
-        return sprs.tocsc()
+            S, C = block.extract(
+                S, C,
+                self.xlo, self.xhi,
+                self.ylo, self.yhi,
+                use_weight=True
+            )
+        # Convert to CSC for efficient arithmetic
+        S = S.tocsc()
+        C = C.tocsc()
+
+        # Elementwise division: only where C > 0
+        if C.nnz == 0:
+            return S 
+        C.data = 1.0 / C.data
+        S = S.multiply(C)
+        return S
+    
+
     
     ###################################################################################
     
-    def invert(self) -> BlockOverlapMatrix:
-        invbmat = BlockOverlapMatrix(
-            self.ndims,
-            average=self.average,
-            xlo=self.xlo,xhi=self.xhi,
-            ylo=self.ylo,yhi=self.yhi,
-            periodic=self.periodic,
-            fixed_size=self.fixed_size,
-            check_bounds=self.check_bounds,
-            check_bounds_on_read=self.check_bounds_on_read
-        )
-        for i,block in enumerate(self.matblocks):
-            print(f'Inverting block {i+1}/{len(self.matblocks)}')
-            invblock = np.linalg.inv(block.mat)
-            invbmat.add_block(invblock,block.x1,block.x2,block.y1,block.y2)
-        return invbmat
+    # def invert(self) -> BlockOverlapMatrix:
+    #     invbmat = BlockOverlapMatrix(
+    #         self.ndims,
+    #         average=self.average,
+    #         xlo=self.xlo,xhi=self.xhi,
+    #         ylo=self.ylo,yhi=self.yhi,
+    #         periodic=self.periodic,
+    #         fixed_size=self.fixed_size,
+    #         check_bounds=self.check_bounds,
+    #         check_bounds_on_read=self.check_bounds_on_read
+    #     )
+    #     for i,block in enumerate(self.matblocks):
+    #         print(f'Inverting block {i+1}/{len(self.matblocks)}')
+    #         invblock = np.linalg.inv(block.mat)
+    #         invbmat.add_block(invblock,block.x1,block.x2,block.y1,block.y2)
+    #     return invbmat
     
 #######################################################################################
 #######################################################################################
@@ -328,21 +440,75 @@ class BlockOverlapMatrix:
 
 
 class BOMat:
-    # mat: np.ndarray
-    # x1: int
-    # x2: int
-    # y1: int
-    # y2: int
-    # overlap_mat: np.ndarray
-    # image: bool
+    """
+    Dense matrix block with global index ranges, used by BlockOverlapMatrix.
 
-    # periodic: bool
-    # xrge: int
-    # yrge: int
+    A BOMat represents a dense submatrix defined over global index ranges
+    [x1, x2) x [y1, y2). It stores the numerical values for that block and
+    provides methods to extract its contribution into a target matrix region,
+    optionally accounting for periodic boundary conditions.
 
-    # # TO DO: Make this a weight profile, i.e. a matrix with individual weights. This will allow to combine blocks of different sizes to
-    # # optimize memory use.
-    # weight: int
+    The block itself is stored only once; periodicity is handled by generating
+    shifted "images" of the block at extraction time.
+
+    Parameters
+    ----------
+    mat : np.ndarray
+        Dense 2D array of shape (x2 - x1, y2 - y1) containing the block data.
+        Sparse matrices are accepted and converted to dense on construction.
+    x1, x2 : int
+        Global index range in the x-direction (half-open interval [x1, x2)).
+    y1, y2 : int or None
+        Global index range in the y-direction (half-open interval [y1, y2)).
+        If None, y1 defaults to x1 and y2 defaults to x2 (square block).
+    copy : bool
+        If True, the input matrix is copied on construction. If False, the
+        matrix reference is used directly.
+    image : bool
+        Flag reserved for distinguishing original blocks from periodic images.
+        Currently informational; periodic images are generated implicitly at
+        extraction time.
+    periodic : bool
+        If True, the block is treated as periodically repeating with periods
+        xrge and yrge. The block is not physically wrapped or split; instead,
+        periodic images are generated during extraction.
+    xrge, yrge : int
+        Period lengths in x and y directions. Must be positive if periodic=True.
+        Typically these are the full matrix dimensions.
+    weight : int or float
+        Weight used when accumulating overlapping blocks. During extraction,
+        contributions from this block are multiplied by `weight`, and the
+        corresponding counter array is incremented by `weight`. This enables
+        weighted averaging of overlapping blocks.
+
+    Periodic behavior
+    -----------------
+    When periodic=True, the block may extend beyond the base domain defined by
+    the period. The block is stored with its original (x1, x2, y1, y2) indices,
+    which may lie partially outside the fundamental domain.
+
+    During extraction, the block contributes not only from its base placement
+    but also from periodic images shifted by integer multiples of the period
+    (±n*xrge, ±m*yrge). All images that overlap the requested extraction window
+    are accumulated.
+
+    Important assumptions
+    ---------------------
+    - The block extent (x2-x1, y2-y1) should not exceed the period in periodic
+      mode. Larger blocks can lead to multiple overlapping images and double
+      counting.
+    - Index ranges follow Python slicing conventions: half-open intervals with
+      x1 < x2 and y1 < y2.
+    - This class does not perform bounds checking against a global matrix; it
+      relies on BlockOverlapMatrix to define the global domain and extraction
+      windows.
+
+    Notes
+    -----
+    BOMat is a low-level helper class. It does not implement matrix algebra on
+    its own; its role is to contribute local dense blocks into a larger matrix
+    assembly via extraction and accumulation.
+    """
 
     def __init__(
         self,
@@ -376,35 +542,63 @@ class BOMat:
             self.y2 = x2
         else:
             self.y2 = y2
-        if len(mat) != self.x2 - self.x1:
-            raise IndexError(f"Size of x-dimension ({len(mat)}) inconsistent with specified x range ({self.x2 - self.x1})")
-        if len(mat[0]) != self.y2 - self.y1:
-            raise IndexError(f"Size of x-dimension ({len(mat[0])}) inconsistent with specified x range ({self.y2 - self.y1})")
+            
+        arr = np.asarray(self.mat)
+        if arr.ndim != 2:
+            raise ValueError(f"mat must be a 2D array, got ndim={arr.ndim}.")
+
+        expected_shape = (self.x2 - self.x1, self.y2 - self.y1)
+        if arr.shape != expected_shape:
+            raise IndexError(
+                f"mat shape {arr.shape} inconsistent with specified range "
+                f"({expected_shape[0]} x {expected_shape[1]}) from "
+                f"x:[{self.x1},{self.x2}) y:[{self.y1},{self.y2})."
+            )
+        self.mat = arr
+                    
         self.overlap_mat = np.ones(self.mat.shape)
 
         self.periodic = periodic
         self.xrge = xrge
         self.yrge = yrge
-
         self.weight = weight
+
+        if self.periodic:
+            if self.xrge <= 0 or self.yrge <= 0:
+                raise ValueError("Periodic BOMat requires positive xrge and yrge.")
+            
+            dx = self.x2 - self.x1
+            dy = self.y2 - self.y1
+            if dx > self.xrge or dy > self.yrge:
+                raise ValueError(
+                    "Periodic BOMat requires block extent <= period "
+                    f"(got dx={dx}, dy={dy}, xrge={self.xrge}, yrge={self.yrge})."
+                )
 
     def extract(
         self,
-        extr_mat: np.ndarray,
-        cnt: np.ndarray,
+        extr_mat: np.ndarray | sp.spmatrix,
+        cnt: np.ndarray | sp.spmatrix,
         x1: int,
         x2: int,
         y1: int,
         y2: int,
-        use_weight=True,
-    ) -> Tuple[np.ndarray, int, int, int, int]:
-        xshifts = self._periodic_shifts(self.x1, self.x2, x1, x2, self.xrge)
-        yshifts = self._periodic_shifts(self.y1, self.y2, y1, y2, self.yrge)
+        use_weight: bool = True,
+    ) -> tuple[np.ndarray | sp.spmatrix, np.ndarray | sp.spmatrix]:
+        """
+        Accumulate this block's contribution into (extr_mat, cnt) over
+        the query window [x1, x2) × [y1, y2). Supports dense or sparse targets.
+        """
 
+        # Non-periodic: simple overlap test
         if not self.periodic:
-            if 0 not in xshifts or 0 not in yshifts:
+            if self.x2 <= x1 or self.x1 >= x2 or self.y2 <= y1 or self.y1 >= y2:
                 return extr_mat, cnt
             return self._extract(extr_mat, cnt, x1, x2, y1, y2, use_weight=use_weight)
+
+        # Periodic: generate wrapped images
+        xshifts = self._periodic_shifts(self.x1, self.x2, x1, x2, self.xrge)
+        yshifts = self._periodic_shifts(self.y1, self.y2, y1, y2, self.yrge)
 
         for xshift in xshifts:
             for yshift in yshifts:
@@ -417,49 +611,57 @@ class BOMat:
                     y2 - yshift,
                     use_weight=use_weight,
                 )
+
         return extr_mat, cnt
+
 
     def _extract(
         self,
-        extr_mat: np.ndarray,
-        cnt: np.ndarray,
+        extr_mat: np.ndarray | sp.spmatrix,
+        cnt: np.ndarray | sp.spmatrix,
         x1: int,
         x2: int,
         y1: int,
         y2: int,
-        use_weight=True,
-    ):
+        use_weight: bool = True,
+    ) -> tuple[np.ndarray | sp.spmatrix, np.ndarray | sp.spmatrix]:
         # assert (x1 <= self.x1 <= x2) or (x1 <= self.x2 <= x2), "x out of range"
         # assert (y1 <= self.y1 <= y2) or (y1 <= self.y2 <= y2), "y out of range"
 
-        if self.x1 <= x1:
-            xlo = x1
-        else:
-            xlo = self.x1
-        if self.x2 >= x2:
-            xhi = x2
-        else:
-            xhi = self.x2
+        # Determine overlap region
+        
+        xlo = max(self.x1, x1)
+        xhi = min(self.x2, x2)
 
-        if self.y1 <= y1:
-            ylo = y1
-        else:
-            ylo = self.y1
-        if self.y2 >= y2:
-            yhi = y2
-        else:
-            yhi = self.y2
-        if use_weight:
-            weight = self.weight
-        else:
-            weight = 1
+        ylo = max(self.y1, y1)
+        yhi = min(self.y2, y2)
+        
+        if xlo >= xhi or ylo >= yhi:
+            return extr_mat, cnt
+        
+        weight = self.weight if use_weight else 1
+        
+        # Target slices (in extraction window coordinates)
+        xs = slice(xlo - x1, xhi - x1)
+        ys = slice(ylo - y1, yhi - y1)
 
-        extr_mat[xlo - x1 : xhi - x1, ylo - y1 : yhi - y1] += (
-            self.mat[xlo - self.x1 : xhi - self.x1, ylo - self.y1 : yhi - self.y1]
-            * weight
-        )
-        cnt[xlo - x1 : xhi - x1, ylo - y1 : yhi - y1] += weight
+        # Source slices (in block-local coordinates)
+        bxs = slice(xlo - self.x1, xhi - self.x1)
+        bys = slice(ylo - self.y1, yhi - self.y1)
+        
+        block_vals = self.mat[bxs, bys]
+
+        if sp.sparse.issparse(extr_mat):
+            # Sparse-safe accumulation
+            extr_mat[xs, ys] = extr_mat[xs, ys] + block_vals * weight
+            cnt[xs, ys] = cnt[xs, ys] + np.ones(block_vals.shape) * weight
+        else:
+            # Dense accumulation
+            extr_mat[xs, ys] += block_vals * weight
+            cnt[xs, ys] += weight
+
         return extr_mat, cnt
+            
 
     def _periodic_shifts(self, x1: int, x2, b1: int, b2: int, rge: int) -> List[int]:
         sx2 = (x2 - b1) % rge + b1
@@ -470,21 +672,3 @@ class BOMat:
         if sx1 < b2:
             shifts += [baseshift]
         return shifts
-
-
-# def blockoverlap2bmat(matrix: np.ndarray, blocksize: int, blockoverlap: np.ndarray, ndims: int = 6, periodic: bool = False,fixed_size=True,check_bounds=True,check_bounds_on_read=False) -> BlockOverlapMatrix:
-     
-#     bmat = BlockOverlapMatrix(
-#         ndims,
-#         average=True,
-#         xlo=0,
-#         xhi=matrix.shape[0],
-#         ylo=0,
-#         yhi=matrix.shape[1],
-#         periodic=periodic,
-#         fixed_size=True,
-#         check_bounds=check_bounds,
-#         check_bounds_on_read=check_bounds_on_read
-#     )
-#     for 
-    

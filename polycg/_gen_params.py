@@ -41,7 +41,8 @@ def gen_params(
 
     if model.lower() in ['crystal','cry','olson']:
         genstiff = GenStiffness(method='crystal')
-        stiff,gs = genstiff.gen_params(sequence,use_group=False,sparse=True)
+        params = genstiff.gen_params(sequence,use_group=False,sparse=True)
+        stiff,gs = params['stiffness'], params['groundstate']
     
     #########################################################
     # MD data from Lankas et al. 2003
@@ -49,7 +50,8 @@ def gen_params(
     
     if model.lower() in ['md','lankas']:
         genstiff = GenStiffness(method='md')
-        stiff,gs = genstiff.gen_params(sequence,use_group=False,sparse=True)
+        params = genstiff.gen_params(sequence,use_group=False,sparse=True)
+        stiff,gs = params['stiffness'], params['groundstate']
     
     #########################################################
     # cgNA+, Sharma et al.
@@ -97,6 +99,11 @@ def gen_params(
             gs,stiff = cgnaplus_bps_params(
                 sequence,
                 parameter_set_name=cgnap_setname,
+                translations_in_nm=True,
+                euler_definition=True,
+                group_split=True,
+                remove_factor_five=True,
+                rotations_only=False
                 )
     
     params = {
