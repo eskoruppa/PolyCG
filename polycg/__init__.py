@@ -15,7 +15,8 @@ from .IOPolyMC.iopolymc import dna_oligomers, write_idb
 
 ############################
 # Parameter methods
-from .gen_params import gen_params, gen_config
+from ._gen_params import gen_params 
+from .genconf import gen_config
 from .cgnaplus import cgnaplus_bps_params, cgnaplus_name_assignment
 
 ############################

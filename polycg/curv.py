@@ -2,35 +2,35 @@ import sys, os
 import argparse
 import numpy as np
 
-from .gen_params import gen_params, gen_config
-from .cgnaplus import cgnaplus_bps_params
+from ._gen_params import gen_params
+from .genconf import gen_config
 
 def dnacurv(
     seq: str,
-    disc_len: int, 
+    span: int, 
     model: str = 'cgna+', 
     angles: bool = True, 
     degrees: bool = True
     ) -> dict:
-    """_summary_
+    """Generates the angles due to intrinsic curvature spanning the next span base pairs in a sliding window through the provided sequence.
 
     Args:
         seq (str): DNA sequence 
-        disc_len (int): size of segments over which bend angles are calculated
+        span (int): number of segments over which bend angles are calculated
         model (str, optional): DNA structure and elasticity model. Defaults to 'cgna+'.
         angles (bool, optional): express curvature as an angle. Defaults to True. If False, values are expressed as cos(theta).
         degrees (bool, optional): Express angles in degrees. Defaults to True. Automatically False, if angles is False.
 
     Returns:
-        numpy array 
+        np.ndarray
     """
     prms = gen_params(model,seq,composite_size=1)
     taus = gen_config(prms['gs'])
     N = len(seq)-1
-    M = N - disc_len + 1
+    M = N - span + 1
     vals = np.zeros(M)
     for i in range(M):
-        vals[i] = np.dot(taus[i,:3,2],taus[i+disc_len,:3,2])
+        vals[i] = np.dot(taus[i,:3,2],taus[i+span,:3,2])
     if angles:
         vals = np.arccos(vals)
     if degrees and angles:
@@ -38,7 +38,7 @@ def dnacurv(
     curvdict = {
         'curvature': vals, 
         'sequence': seq, 
-        'disc_len': disc_len,
+        'span': span,
         'model': model,
         'angles': angles,
         'degrees': degrees}

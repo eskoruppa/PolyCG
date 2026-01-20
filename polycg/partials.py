@@ -278,6 +278,9 @@ def _extract_bps_stiff(
 
     fseq = extseq[lid:uid]
     gs, stiff = stiffgen_method(fseq, **stiffgen_args)
+    if len(gs.shape) > 1:
+        gs = gs.flatten()
+    
     cut = tail_size * ndims
     gs = gs[cut:-cut]
     stiff = stiff[cut:-cut, cut:-cut]
