@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys, os
 import argparse
 import numpy as np

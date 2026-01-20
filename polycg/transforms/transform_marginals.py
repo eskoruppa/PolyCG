@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import numpy as np
 import scipy as sp
 from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix

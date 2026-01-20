@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys, os
 import numpy as np
 from typing import List, Tuple, Callable, Any, Dict
@@ -56,17 +58,6 @@ def nucleosome_free_energy(
     
     
     
-    
-    
-    
-    
-    # stiffmat_constrain = 
-    
-    
-    
-
-
-
 
 def midstep_excess_vals(
     groundstate: np.ndarray,

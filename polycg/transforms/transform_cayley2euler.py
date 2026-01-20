@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 from typing import List, Tuple, Callable, Any, Dict
 from ..SO3 import so3
