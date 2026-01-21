@@ -692,7 +692,12 @@ class BlockOverlapMatrix:
         return self
     
     
-    def to_sparse(self):
+    def to_sparse(self, 
+                  xlo: int | None = None,
+                  xhi: int | None = None,
+                  ylo: int | None = None,
+                  yhi: int | None = None,
+                  ):
         """
         Assemble the full matrix into a sparse representation.
 
@@ -704,15 +709,33 @@ class BlockOverlapMatrix:
         If the matrix is periodic, blocks that extend beyond the base domain are
         wrapped via periodic images using each block’s extraction logic.
         """
-        nx, ny = self.shape
+        if xlo is None: xlo = self.xlo
+        if xhi is None: xhi = self.xhi
+        if ylo is None: ylo = self.ylo
+        if yhi is None: yhi = self.yhi
+        
+        if xhi <= xlo:
+            raise ValueError(f"Invalid x-bounds: require xhi > xlo, got xlo={xlo}, xhi={xhi}.")
+        if yhi <= ylo:
+            raise ValueError(f"Invalid y-bounds: require yhi > ylo, got ylo={ylo}, yhi={yhi}.")
+
+        if self.fixed_size and not self.periodic:
+            if xlo < self.xlo or xhi > self.xhi or ylo < self.ylo or yhi > self.yhi:
+                raise ValueError(
+                    "Requested bounds exceed fixed-size matrix domain: "
+                    f"requested x:[{xlo},{xhi}) y:[{ylo},{yhi}) but domain is "
+                    f"x:[{self.xlo},{self.xhi}) y:[{self.ylo},{self.yhi})."
+                )
+        
+        nx, ny = xhi-xlo, yhi-ylo
         # Accumulate numerator and counts
         S = lil_matrix((nx, ny))
         C = lil_matrix((nx, ny))
         for block in self.matblocks:
             S, C = block.extract(
                 S, C,
-                self.xlo, self.xhi,
-                self.ylo, self.yhi,
+                xlo, xhi,
+                ylo, yhi,
                 use_weight=True
             )
         # Convert to CSC for efficient arithmetic
@@ -725,6 +748,44 @@ class BlockOverlapMatrix:
         C.data = 1.0 / C.data
         S = S.multiply(C)
         return S
+    
+    
+    # def to_sparse(self):
+    #     """
+    #     Assemble the full matrix into a sparse representation.
+
+    #     This method has the same semantics as extracting the full matrix via
+    #     `self[self.xlo:self.xhi, self.ylo:self.yhi]`, but stores the result as a
+    #     sparse matrix. Block contributions are accumulated and averaged in overlap
+    #     regions.
+
+    #     If the matrix is periodic, blocks that extend beyond the base domain are
+    #     wrapped via periodic images using each block’s extraction logic.
+    #     """
+    #     nx, ny = self.shape
+    #     # Accumulate numerator and counts
+    #     S = lil_matrix((nx, ny))
+    #     C = lil_matrix((nx, ny))
+    #     for block in self.matblocks:
+    #         S, C = block.extract(
+    #             S, C,
+    #             self.xlo, self.xhi,
+    #             self.ylo, self.yhi,
+    #             use_weight=True
+    #         )
+    #     # Convert to CSC for efficient arithmetic
+    #     S = S.tocsc()
+    #     C = C.tocsc()
+
+    #     # Elementwise division: only where C > 0
+    #     if C.nnz == 0:
+    #         return S 
+    #     C.data = 1.0 / C.data
+    #     S = S.multiply(C)
+    #     return S
+    
+    
+    
     
     
     def to_periodic(
@@ -787,6 +848,10 @@ class BlockOverlapMatrix:
         return new
 
 
+
+
+
+
     
     ###################################################################################
     
@@ -815,4 +880,8 @@ if __name__ == "__main__":
     bmat[3-6:7-6,3-6:7-6] = -3
     bmat.add_block(np.ones((2,2))*4,x1=2,x2=4,y1=2,y2=4)
     print(bmat.to_array())
+    
+    
+    print(bmat.to_sparse(xhi=10,yhi=10).toarray())
+    # print(bmat[:10,:10])
 
