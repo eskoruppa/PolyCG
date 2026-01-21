@@ -61,15 +61,21 @@ def gen_params(
      
     if model.lower() in ['cgnaplus','cgna+','cgnap']:
         
+        CGNAPLUS_ROT_IN_NM    = True
+        CGNAPLUS_EULER_DEF    = True
+        CGNAPLUS_GROUP_SPLIT  = True
+        CGNAPLUS_REMOVE_FAC_5 = True
+        CGNAPLUS_ROT_ONLY     = False
+        
         if allow_partial:
             method = cgnaplus_bps_params
             stiffgen_args = {
-                'translations_in_nm': True, 
-                'euler_definition': True, 
-                'group_split' : True,
+                'translations_in_nm': CGNAPLUS_ROT_IN_NM, 
+                'euler_definition': CGNAPLUS_EULER_DEF, 
+                'group_split' : CGNAPLUS_GROUP_SPLIT,
                 'parameter_set_name' : cgnap_setname,
-                'remove_factor_five' : True,
-                'rotations_only': False
+                'remove_factor_five' : CGNAPLUS_REMOVE_FAC_5,
+                'rotations_only': CGNAPLUS_ROT_ONLY
                 }
         
             nbps = len(sequence)
@@ -101,11 +107,11 @@ def gen_params(
             gs,stiff = cgnaplus_bps_params(
                 sequence,
                 parameter_set_name=cgnap_setname,
-                translations_in_nm=True,
-                euler_definition=True,
-                group_split=True,
-                remove_factor_five=True,
-                rotations_only=False
+                translations_in_nm=CGNAPLUS_ROT_IN_NM,
+                euler_definition=CGNAPLUS_EULER_DEF,
+                group_split=CGNAPLUS_GROUP_SPLIT,
+                remove_factor_five=CGNAPLUS_REMOVE_FAC_5,
+                rotations_only=CGNAPLUS_ROT_ONLY
                 )
     
     params = {
@@ -143,23 +149,3 @@ def gen_params(
     params['cg_stiff'] = cg_stiff
     return params
         
-    
-##################################################################################################################
-##################################################################################################################
-##################################################################################################################
-
-# def gen_config(params: np.ndarray):
-#     if len(params.shape) == 1:
-#         pms = params.reshape(len(params)//6,6)
-#     else:
-#         pms = params
-#     taus = np.zeros((len(pms)+1,4,4))
-#     taus[0] = np.eye(4)
-#     for i,pm in enumerate(pms):
-#         g = so3.se3_euler2rotmat(pm)
-#         taus[i+1] = taus[i] @ g
-#     return taus
-
-##################################################################################################################
-##################################################################################################################
-##################################################################################################################

@@ -20,7 +20,7 @@ def partial_stiff(
     overlap_size: int,
     tail_size: int,
     closed: bool = False,
-    ndims: int = 6
+    ndims: int = 6,
 ) -> Tuple[np.ndarray, BlockOverlapMatrix]:
     nbps = len(seq)
     if not closed:
