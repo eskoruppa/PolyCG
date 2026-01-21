@@ -699,15 +699,42 @@ class BlockOverlapMatrix:
                   yhi: int | None = None,
                   ):
         """
-        Assemble the full matrix into a sparse representation.
+        Assemble a sparse matrix representation over a specified index window.
 
-        This method has the same semantics as extracting the full matrix via
-        `self[self.xlo:self.xhi, self.ylo:self.yhi]`, but stores the result as a
-        sparse matrix. Block contributions are accumulated and averaged in overlap
-        regions.
+        The method assembles the matrix entries in the rectangular domain
+        `[xlo:xhi) × [ylo:yhi)` by accumulating contributions from all stored blocks.
+        In regions where multiple blocks overlap, values are averaged according to
+        the block weights. The result is returned as a SciPy sparse matrix.
 
-        If the matrix is periodic, blocks that extend beyond the base domain are
-        wrapped via periodic images using each block’s extraction logic.
+        If no bounds are provided, the full domain defined by the BlockOverlapMatrix
+        (`self.xlo:self.xhi`, `self.ylo:self.yhi`) is assembled.
+
+        For periodic matrices, the requested bounds may extend beyond the base
+        domain. In this case, block contributions are wrapped using periodic images
+        during extraction. For non-periodic matrices with `fixed_size=True`, the
+        requested bounds must lie entirely within the matrix domain.
+
+        Parameters
+        ----------
+        xlo, xhi : int, optional
+            Lower and upper bounds of the x-index range to assemble. Bounds follow
+            half-open slice semantics `[xlo:xhi)`.
+        ylo, yhi : int, optional
+            Lower and upper bounds of the y-index range to assemble. Bounds follow
+            half-open slice semantics `[ylo:yhi)`.
+
+        Returns
+        -------
+        scipy.sparse.csc_matrix
+            Sparse matrix containing the assembled entries over the requested domain.
+
+        Raises
+        ------
+        ValueError
+            If the requested bounds are invalid (`xhi <= xlo` or `yhi <= ylo`).
+        ValueError
+            If `fixed_size=True` and `periodic=False` and the requested bounds extend
+            outside the matrix domain.
         """
         if xlo is None: xlo = self.xlo
         if xhi is None: xhi = self.xhi
@@ -748,45 +775,8 @@ class BlockOverlapMatrix:
         C.data = 1.0 / C.data
         S = S.multiply(C)
         return S
-    
-    
-    # def to_sparse(self):
-    #     """
-    #     Assemble the full matrix into a sparse representation.
 
-    #     This method has the same semantics as extracting the full matrix via
-    #     `self[self.xlo:self.xhi, self.ylo:self.yhi]`, but stores the result as a
-    #     sparse matrix. Block contributions are accumulated and averaged in overlap
-    #     regions.
-
-    #     If the matrix is periodic, blocks that extend beyond the base domain are
-    #     wrapped via periodic images using each block’s extraction logic.
-    #     """
-    #     nx, ny = self.shape
-    #     # Accumulate numerator and counts
-    #     S = lil_matrix((nx, ny))
-    #     C = lil_matrix((nx, ny))
-    #     for block in self.matblocks:
-    #         S, C = block.extract(
-    #             S, C,
-    #             self.xlo, self.xhi,
-    #             self.ylo, self.yhi,
-    #             use_weight=True
-    #         )
-    #     # Convert to CSC for efficient arithmetic
-    #     S = S.tocsc()
-    #     C = C.tocsc()
-
-    #     # Elementwise division: only where C > 0
-    #     if C.nnz == 0:
-    #         return S 
-    #     C.data = 1.0 / C.data
-    #     S = S.multiply(C)
-    #     return S
-    
-    
-    
-    
+        
     
     def to_periodic(
         self,
