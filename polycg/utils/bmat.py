@@ -151,6 +151,8 @@ class BOMat:
         x2: int,
         y1: int,
         y2: int,
+        xrge: int | None = None,
+        yrge: int | None = None,
         use_weight: bool = True,
     ) -> tuple[np.ndarray | sp.spmatrix, np.ndarray | sp.spmatrix]:
         """
@@ -164,9 +166,12 @@ class BOMat:
                 return extr_mat, cnt
             return self._extract(extr_mat, cnt, x1, x2, y1, y2, use_weight=use_weight)
 
+        if xrge is None: xrge = self.xrge
+        if yrge is None: yrge = self.yrge
+
         # Periodic: generate wrapped images
-        xshifts = self._periodic_shifts(self.x1, self.x2, x1, x2, self.xrge)
-        yshifts = self._periodic_shifts(self.y1, self.y2, y1, y2, self.yrge)
+        xshifts = self._periodic_shifts(self.x1, self.x2, x1, x2, xrge)
+        yshifts = self._periodic_shifts(self.y1, self.y2, y1, y2, yrge)
 
         for xshift in xshifts:
             for yshift in yshifts:
@@ -329,6 +334,10 @@ class BlockOverlapMatrix:
         check_bounds: bool = True,
         check_bounds_on_read: bool = True
     ):
+        
+        if (xlo != 0 or ylo !=0) and periodic:
+            raise ValueError('Option periodic currently only works if xlo=0 and ylo=0')
+
         self.average = average
         self.matblocks = list()
 
@@ -693,35 +702,35 @@ class BlockOverlapMatrix:
     
     
     def to_sparse(self, 
-                  xlo: int | None = None,
                   xhi: int | None = None,
-                  ylo: int | None = None,
                   yhi: int | None = None,
                   ):
         """
-        Assemble a sparse matrix representation over a specified index window.
+        Assemble a sparse matrix representation over a prefix of the matrix domain.
 
-        The method assembles the matrix entries in the rectangular domain
-        `[xlo:xhi) × [ylo:yhi)` by accumulating contributions from all stored blocks.
-        In regions where multiple blocks overlap, values are averaged according to
-        the block weights. The result is returned as a SciPy sparse matrix.
+        The method assembles matrix entries in the rectangular domain
+        `[self.xlo:xhi) × [self.ylo:yhi)` by accumulating contributions from all stored
+        blocks. In regions where multiple blocks overlap, values are averaged according
+        to the block weights. The result is returned as a SciPy sparse matrix.
 
-        If no bounds are provided, the full domain defined by the BlockOverlapMatrix
-        (`self.xlo:self.xhi`, `self.ylo:self.yhi`) is assembled.
+        If `xhi` or `yhi` are not provided, the full extent of the matrix domain
+        (`self.xhi`, `self.yhi`) is used. The lower bounds are always fixed to
+        `self.xlo` and `self.ylo`.
 
-        For periodic matrices, the requested bounds may extend beyond the base
-        domain. In this case, block contributions are wrapped using periodic images
-        during extraction. For non-periodic matrices with `fixed_size=True`, the
-        requested bounds must lie entirely within the matrix domain.
+        For periodic matrices, the assembled domain may extend beyond the base domain.
+        In this case, block contributions are wrapped using periodic images defined
+        with respect to the assembled window size. For non-periodic matrices with
+        `fixed_size=True`, the requested bounds must lie entirely within the matrix
+        domain.
 
         Parameters
         ----------
-        xlo, xhi : int, optional
-            Lower and upper bounds of the x-index range to assemble. Bounds follow
-            half-open slice semantics `[xlo:xhi)`.
-        ylo, yhi : int, optional
-            Lower and upper bounds of the y-index range to assemble. Bounds follow
-            half-open slice semantics `[ylo:yhi)`.
+        xhi : int, optional
+            Upper bound of the x-index range to assemble. The assembled range is
+            `[self.xlo:xhi)`.
+        yhi : int, optional
+            Upper bound of the y-index range to assemble. The assembled range is
+            `[self.ylo:yhi)`.
 
         Returns
         -------
@@ -731,14 +740,14 @@ class BlockOverlapMatrix:
         Raises
         ------
         ValueError
-            If the requested bounds are invalid (`xhi <= xlo` or `yhi <= ylo`).
+            If `xhi <= self.xlo` or `yhi <= self.ylo`.
         ValueError
             If `fixed_size=True` and `periodic=False` and the requested bounds extend
             outside the matrix domain.
         """
-        if xlo is None: xlo = self.xlo
+        xlo = self.xlo
+        ylo = self.ylo
         if xhi is None: xhi = self.xhi
-        if ylo is None: ylo = self.ylo
         if yhi is None: yhi = self.yhi
         
         if xhi <= xlo:
@@ -763,6 +772,8 @@ class BlockOverlapMatrix:
                 S, C,
                 xlo, xhi,
                 ylo, yhi,
+                xrge=xhi-xlo,
+                yrge=yhi-ylo,
                 use_weight=True
             )
         # Convert to CSC for efficient arithmetic
@@ -838,11 +849,6 @@ class BlockOverlapMatrix:
         return new
 
 
-
-
-
-
-    
     ###################################################################################
     
     # def invert(self) -> BlockOverlapMatrix:
