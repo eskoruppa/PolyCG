@@ -241,6 +241,10 @@ class BOMat:
             shifts += [baseshift]
         return shifts
     
+    
+    def get_zeros_mat(self,dtype=np.float64) -> np.ndarray:
+        return np.zeros((self.x2 - self.x1, self.y2 - self.y1),dtype=dtype)
+    
 
 #######################################################################################
 #######################################################################################
@@ -315,7 +319,6 @@ class BlockOverlapMatrix:
 
     def __init__(
         self,
-        ndims: int,
         average: bool = True,
         xlo: int = None,
         xhi: int = None,
@@ -326,7 +329,6 @@ class BlockOverlapMatrix:
         check_bounds: bool = True,
         check_bounds_on_read: bool = True
     ):
-        self.ndims = ndims
         self.average = average
         self.matblocks = list()
 
@@ -510,16 +512,18 @@ class BlockOverlapMatrix:
 
     def __setitem__(self, ids: Tuple[slice, slice], mat: np.ndarray | float | int) -> None:
         """
-        Assign a dense block (or scalar-filled block) into the matrix over a slice window.
+        Assign values to a rectangular region of the matrix defined by slice indices.
 
-        This creates a new contributing block over the region specified by `ids`
-        (two slice objects). The new block is appended to `self.matblocks`, and
-        then any *existing* blocks are updated so that, in the regions covered by
-        the new block, their stored values are overwritten by the new block's values.
+        A new dense block is created over the index window specified by `ids` and
+        appended to the internal block list. Any existing blocks are updated so that,
+        in regions overlapping the assigned window, their stored values are replaced
+        by the newly assigned values.
 
-        This means `__setitem__` behaves more like "write/overwrite" semantics
-        (on already-stored blocks), unlike `add_block` which only adds another
-        contributor and relies on averaging at read-time.
+        Slice bounds are interpreted using half-open intervals and are first mapped
+        into the matrix domain. When periodic boundary conditions are enabled, wrapped
+        slice indices are converted into their canonical in-domain representation, and
+        overlap resolution is performed using the same periodic image logic as matrix
+        extraction.
 
         Parameters
         ----------
@@ -527,20 +531,20 @@ class BlockOverlapMatrix:
             Tuple `(x_slice, y_slice)` defining the half-open assignment window
             `[x1:x2, y1:y2)`. Only slice-based indexing is supported.
         mat : numpy.ndarray or float or int
-            If an array, it must have shape `(x2-x1, y2-y1)` and provides the values
-            for the new block. If a scalar, a constant block of that value is created
-            with the appropriate shape.
+            If an array, it must have shape `(x2 - x1, y2 - y1)` and provides the values
+            assigned to the specified window. If a scalar, a constant array of the
+            appropriate shape is created and assigned.
 
         Raises
         ------
         ValueError
             If `ids` is not a tuple of two slices, or if `mat` is neither a NumPy array
-            nor convertible to a float, or if the slice bounds are invalid.
+            nor convertible to a float.
         ValueError
-            If bounds checking is enabled and the assignment region is out of bounds.
+            If bounds checking is enabled and the assignment window lies outside the
+            fixed matrix domain.
         IndexError
-            If `mat` is an array whose shape does not match the specified slice region
-            (raised indirectly by BOMat construction).
+            If `mat` is an array whose shape does not match the assignment window.
         """
         
         if not isinstance(ids, tuple):
@@ -561,6 +565,17 @@ class BlockOverlapMatrix:
             except:
                 raise ValueError("mat should be a scalar or numpy ndarray")
             mat = np.ones((x2 - x1, y2 - y1)) * val
+        else:
+            # Ensure expected shape (BOMat will also validate, but we need it for overwrite mapping)
+            arr = np.asarray(mat)
+            expected = (x2 - x1, y2 - y1)
+            if arr.ndim != 2 or arr.shape != expected:
+                raise IndexError(
+                    f"mat shape {arr.shape} inconsistent with specified range {expected} "
+                    f"from x:[{x1},{x2}) y:[{y1},{y2})."
+                )
+            mat = arr
+            
 
         new_block = self._new_block(mat, x1, x2, y1=y1, y2=y2)
         self._update_bounds(x1, x2, y1, y2)
@@ -569,14 +584,15 @@ class BlockOverlapMatrix:
         for block in self.matblocks:
             if block == new_block:
                 continue
-
-            # skip blocks that cannot overlap new_block at all
-            if not self.periodic:
+                
+            if self.periodic:
                 if block.x2 <= x1 or block.x1 >= x2 or block.y2 <= y1 or block.y1 >= y2:
                     continue
 
-            extr_mat = np.zeros((block.x2 - block.x1, block.y2 - block.y1))
-            extr_cnt = np.zeros(extr_mat.shape)
+            # extr_mat = np.zeros((block.x2 - block.x1, block.y2 - block.y1))
+            # extr_cnt = np.zeros(extr_mat.shape)
+            extr_mat = block.get_zeros_mat()
+            extr_cnt = block.get_zeros_mat()
             extr_mat, extr_cnt = new_block.extract(
                 extr_mat,
                 extr_cnt,
@@ -752,7 +768,6 @@ class BlockOverlapMatrix:
             )
 
         new = BlockOverlapMatrix(
-            self.ndims,
             average=self.average,
             xlo=nxlo, xhi=nxhi,
             ylo=nylo, yhi=nyhi,
@@ -777,7 +792,6 @@ class BlockOverlapMatrix:
     
     # def invert(self) -> BlockOverlapMatrix:
     #     invbmat = BlockOverlapMatrix(
-    #         self.ndims,
     #         average=self.average,
     #         xlo=self.xlo,xhi=self.xhi,
     #         ylo=self.ylo,yhi=self.yhi,
@@ -792,3 +806,13 @@ class BlockOverlapMatrix:
     #         invbmat.add_block(invblock,block.x1,block.x2,block.y1,block.y2)
     #     return invbmat
     
+
+if __name__ == "__main__":
+    bmat = BlockOverlapMatrix(average=True,xlo=0,xhi=6,ylo=0,yhi=6,periodic=True)
+    bmat.add_block(np.ones((3,3)),x1=4,x2=7,y1=4,y2=7)
+    bmat.add_block(np.ones((3,3))*2,x1=1,x2=4,y1=1,y2=4)
+    bmat[3:7,3:7] = 3
+    bmat[3-6:7-6,3-6:7-6] = -3
+    bmat.add_block(np.ones((2,2))*4,x1=2,x2=4,y1=2,y2=4)
+    print(bmat.to_array())
+

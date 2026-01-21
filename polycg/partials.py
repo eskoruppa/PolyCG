@@ -84,7 +84,6 @@ def _partial_stiff_linear(
     lastseg_id = Nsegs - 1
 
     stiff = BlockOverlapMatrix(
-        ndims,
         average=True,
         periodic=False,
         fixed_size=True,
@@ -159,7 +158,6 @@ def _partial_stiff_closed(
     lastseg_id = Nsegs - 1
 
     stiff = BlockOverlapMatrix(
-        ndims,
         average=True,
         periodic=True,
         xlo=0,

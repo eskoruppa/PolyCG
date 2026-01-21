@@ -276,7 +276,6 @@ def _cg_stiff_partial_linear(
     lastseg_id = Nsegs - 1
 
     cgstiff = BlockOverlapMatrix(
-        ndims,
         average=True,
         periodic=False,
         fixed_size=True,
