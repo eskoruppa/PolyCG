@@ -710,31 +710,37 @@ class BlockOverlapMatrix:
                   yhi: int | None = None,
                   ):
         """
-        Assemble a sparse matrix representation over a prefix of the matrix domain.
+        Assemble a sparse matrix representation over a specified rectangular domain.
 
-        The method assembles matrix entries in the rectangular domain
-        `[self.xlo:xhi) × [self.ylo:yhi)` by accumulating contributions from all stored
-        blocks. In regions where multiple blocks overlap, values are averaged according
-        to the block weights. The result is returned as a SciPy sparse matrix.
+        The method assembles matrix entries in the domain `[xlo:xhi) × [ylo:yhi)` by
+        accumulating contributions from all stored blocks. In regions where multiple
+        blocks overlap, values are averaged according to the block weights. The result
+        is returned as a SciPy sparse matrix.
 
-        If `xhi` or `yhi` are not provided, the full extent of the matrix domain
-        (`self.xhi`, `self.yhi`) is used. The lower bounds are always fixed to
-        `self.xlo` and `self.ylo`.
+        If bounds are not provided, the full matrix domain defined by
+        `self.xlo:self.xhi` and `self.ylo:self.yhi` is assembled.
 
-        For periodic matrices, the assembled domain may extend beyond the base domain.
-        In this case, block contributions are wrapped using periodic images defined
-        with respect to the assembled window size. For non-periodic matrices with
-        `fixed_size=True`, the requested bounds must lie entirely within the matrix
-        domain.
+        For periodic matrices, custom lower bounds (`xlo`, `ylo`) are not supported.
+        In this case, the assembled domain must start at the base domain origin
+        (`self.xlo`, `self.ylo`), while upper bounds may extend beyond the base domain.
+        Block contributions are wrapped using periodic images defined with respect to
+        the assembled window size.
+
+        For non-periodic matrices with `fixed_size=True`, the requested bounds must lie
+        entirely within the matrix domain.
 
         Parameters
         ----------
+        xlo : int, optional
+            Lower bound of the x-index range to assemble. Must be `None` when
+            `periodic=True`; otherwise defaults to `self.xlo`.
         xhi : int, optional
-            Upper bound of the x-index range to assemble. The assembled range is
-            `[self.xlo:xhi)`.
+            Upper bound of the x-index range to assemble. Defaults to `self.xhi`.
+        ylo : int, optional
+            Lower bound of the y-index range to assemble. Must be `None` when
+            `periodic=True`; otherwise defaults to `self.ylo`.
         yhi : int, optional
-            Upper bound of the y-index range to assemble. The assembled range is
-            `[self.ylo:yhi)`.
+            Upper bound of the y-index range to assemble. Defaults to `self.yhi`.
 
         Returns
         -------
@@ -744,7 +750,9 @@ class BlockOverlapMatrix:
         Raises
         ------
         ValueError
-            If `xhi <= self.xlo` or `yhi <= self.ylo`.
+            If `xhi <= xlo` or `yhi <= ylo`.
+        ValueError
+            If `periodic=True` and either `xlo` or `ylo` is provided.
         ValueError
             If `fixed_size=True` and `periodic=False` and the requested bounds extend
             outside the matrix domain.
@@ -878,6 +886,45 @@ class BlockOverlapMatrix:
     #     return invbmat
     
 
+def crop_periodic_fold_fill_zeros(
+    A: sp.sparse.spmatrix,
+    nx: int,
+    ny: int,
+) -> sp.sparse.csc_matrix:
+    """
+    Fold a sparse matrix into a smaller (nx, ny) domain using periodic boundaries.
+
+    Each nonzero entry A[i, j] is mapped to (i % nx, j % ny). If the target entry
+    is zero, the value is inserted. If the target entry is already nonzero, it is
+    left unchanged.
+
+    Parameters
+    ----------
+    A : scipy.sparse.spmatrix
+        Input sparse matrix.
+    nx, ny : int
+        Target shape of the folded matrix.
+
+    Returns
+    -------
+    scipy.sparse.csc_matrix
+        Sparse matrix of shape (nx, ny) with periodic folding applied.
+    """
+    if nx <= 0 or ny <= 0:
+        raise ValueError(f"nx and ny must be positive, got nx={nx}, ny={ny}.")
+    coo = A.tocoo()
+    seen = {}
+    for i in range(len(coo.data)):
+        r = coo.row[i] % nx
+        c = coo.col[i] % ny
+        if (r, c) not in seen:
+            seen[(r, c)] = coo.data[i]
+    rows = [k[0] for k in seen]
+    cols = [k[1] for k in seen]
+    data = [seen[k] for k in seen]
+    return sp.sparse.csc_matrix((data, (rows, cols)), shape=(nx, ny))
+
+
 if __name__ == "__main__":
     bmat = BlockOverlapMatrix(average=True,xlo=0,xhi=6,ylo=0,yhi=6,periodic=True)
     bmat.add_block(np.ones((3,3)),x1=4,x2=7,y1=4,y2=7)
@@ -890,3 +937,4 @@ if __name__ == "__main__":
     
     print(bmat.to_sparse(xhi=10,yhi=10).toarray())
     # print(bmat[:10,:10])
+

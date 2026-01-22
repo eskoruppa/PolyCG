@@ -81,6 +81,7 @@ def coarse_grain(
             substitute_block = substitute_block,
             use_sparse=use_sparse
         )
+    
     return cg_gs, cg_stiff
 
 ############################################################################################
@@ -231,7 +232,8 @@ def cg_stiff_partial(
         )
     if block_ncomp + tail_ncomp < CG_PARTIALS_MIN_BLOCK:
         raise ValueError(
-            f"Number of blocks too small. block_ncomp+tail_ncomp={block_ncomp+tail_ncomp}. Needs to be at least {CG_PARTIALS_MIN_BLOCK}."
+            f"Number of blocks too small. block_ncomp+tail_ncomp={block_ncomp+tail_ncomp}. Needs to be at least {CG_PARTIALS_MIN_BLOCK}.\n \
+            The sequence is too small for the chosen composite_size!"
         )
 
     if closed:
@@ -331,7 +333,7 @@ def _cg_stiff_partial_linear(
         mid2 = id2 * ndims
         cgstiff.add_block(pcgstiff, mid1, mid2, y1=mid1, y2=mid2)
       
-    return cgstiff.to_sparse()      
+    return cgstiff     
     
     
     
