@@ -337,6 +337,8 @@ class BlockOverlapMatrix:
         
         if (xlo != 0 or ylo !=0) and periodic:
             raise ValueError('Option periodic currently only works if xlo=0 and ylo=0')
+            # Allowing different xlo and ylo required refactor of BOMat. Currently the latter 
+            # assumes that the lower bound is always zero as only xrge and yrge are passed. 
 
         self.average = average
         self.matblocks = list()
@@ -701,8 +703,10 @@ class BlockOverlapMatrix:
         return self
     
     
-    def to_sparse(self, 
+    def to_sparse(self,
+                  xlo: int | None = None,
                   xhi: int | None = None,
+                  ylo: int | None = None,
                   yhi: int | None = None,
                   ):
         """
@@ -745,9 +749,15 @@ class BlockOverlapMatrix:
             If `fixed_size=True` and `periodic=False` and the requested bounds extend
             outside the matrix domain.
         """
-        xlo = self.xlo
-        ylo = self.ylo
+        
+        if xlo is not None and self.periodic:
+            raise ValueError(f'Currently to_sparce does not allow for custom lower bound assignment for periodic boundary conditions')
+        if ylo is not None and self.periodic:
+            raise ValueError(f'Currently to_sparce does not allow for custom lower bound assignment for periodic boundary conditions')
+        
+        if xlo is None: xlo = self.xlo
         if xhi is None: xhi = self.xhi
+        if ylo is None: ylo = self.ylo
         if yhi is None: yhi = self.yhi
         
         if xhi <= xlo:
@@ -880,4 +890,3 @@ if __name__ == "__main__":
     
     print(bmat.to_sparse(xhi=10,yhi=10).toarray())
     # print(bmat[:10,:10])
-
