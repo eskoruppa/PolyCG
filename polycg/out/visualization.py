@@ -5,8 +5,8 @@ import numpy as np
 from ..IOPolyMC import iopolymc as iopmc
 from ..genconf import gen_config
 
-# def visualize_chimerax(basefn: str, params: np.ndarray, seq: str, bead_radius: float = None, disc_len: float=0.34, include_bps_triads: bool = False):
-    
+def visualize_chimerax(basefn: str, params: np.ndarray, seq: str, bead_radius: float = None, disc_len: float=0.34, include_bps_triads: bool = False):
+    pass
 
 def cgvisual(basefn: str, params: np.ndarray, seq: str, cg: int, startid: int = 0, bead_radius: float = None, disc_len: float=0.34, include_bps_triads: bool = False):
     

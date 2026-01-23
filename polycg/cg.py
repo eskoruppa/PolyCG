@@ -10,6 +10,7 @@ from .composites import composite_matrix, inv_composite_matrix, composite_ground
 from .transforms.transform_marginals import marginal_schur_complement, matrix_marginal
 from .utils.bmat import BlockOverlapMatrix
 from .transforms.transform_statevec import vecs2statevec, statevec2vecs
+from .utils.console_output import print_progress
 
 import time
 
@@ -33,7 +34,9 @@ def coarse_grain(
     tail_ncomp: int = 2,
     allow_crop: bool = True,
     substitute_block: int = -1,
-    use_sparse: bool = True
+    use_sparse: bool = True,
+    verbose: bool = False,
+    print_info: bool = False,
 ):   
      
     if len(groundstate.shape) != 2:
@@ -44,6 +47,10 @@ def coarse_grain(
     
     if start_id is None:
         start_id = 0
+        
+    if print_info and verbose:
+        print('Convert to sparse matrix')
+    stiffmat = stiffmat.to_sparse() if isinstance(stiffmat, BlockOverlapMatrix) else stiffmat
     
     groundstate,stiffmat = _crop_gs_and_stiff(
         groundstate,
@@ -70,7 +77,8 @@ def coarse_grain(
             tail_ncomp,
             closed = closed,
             substitute_block = substitute_block, 
-            use_sparse=use_sparse
+            use_sparse=use_sparse,
+            verbose=verbose,
         )
     else:
         cg_stiff = cg_stiffmat(
@@ -213,7 +221,8 @@ def cg_stiff_partial(
     tail_ncomp: int,
     closed: bool = False,
     substitute_block: int = -1,
-    use_sparse: bool = True
+    use_sparse: bool = True,
+    verbose: bool = False,
 ) -> np.ndarray | sp.sparse.spmatrix:
 
     if len(groundstate.shape) != 2:
@@ -247,7 +256,8 @@ def cg_stiff_partial(
         overlap_ncomp,
         tail_ncomp,
         substitute_block=substitute_block,
-        use_sparse=use_sparse
+        use_sparse=use_sparse,
+        verbose=verbose,
     )
     
     
@@ -259,7 +269,8 @@ def _cg_stiff_partial_linear(
     overlap_ncomp: int,
     tail_ncomp: int,
     substitute_block: int = -1,
-    use_sparse: bool = True
+    use_sparse: bool = True,
+    verbose: bool = False,
 ) -> sp.sparse.spmatrix:
     
     if len(gs.shape) != 2:
@@ -287,6 +298,8 @@ def _cg_stiff_partial_linear(
         yhi=Ncg * ndims,
     )
 
+    if verbose:
+        print(f"Coarse-graining {Nsegs} blocks ({Ncg*composite_size} total bps, composite_size={composite_size})")
     for i in range(Nsegs):
         # block range
         id1 = i * block_incr
@@ -298,9 +311,8 @@ def _cg_stiff_partial_linear(
             id2 <= Ncg
         ), f"id2 ({id2}) should never exceed the number of cg steps, Ncg ({Ncg})."
 
-        print(
-            f"Coarse-graining from bps {id1*composite_size} to {id2*composite_size} ({Ncg*composite_size} in total)."
-        )
+        if verbose:
+            print_progress(i + 1, Nsegs, prefix='Progress:', suffix=f'Block {i+1}/{Nsegs} (bps {id1*composite_size}-{id2*composite_size})')
 
         lid = id1 - tail_ncomp
         uid = id2 + tail_ncomp

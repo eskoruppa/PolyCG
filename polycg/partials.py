@@ -5,8 +5,10 @@ import numpy as np
 from typing import Tuple, List, Callable, Any, Dict
 from .utils.bmat import BlockOverlapMatrix
 from .transforms.transform_statevec import statevec2vecs
+from .utils.console_output import print_progress
 
 PARTIALS_MIN_BLOCK = 4
+
 
 #######################################################################################
 #######################################################################################
@@ -21,6 +23,8 @@ def partial_stiff(
     tail_size: int,
     closed: bool = False,
     ndims: int = 6,
+    verbose: bool = False,
+    print_info: bool = False,
 ) -> Tuple[np.ndarray, BlockOverlapMatrix]:
     """
     Assemble a global stiffness matrix and ground-state vector by stitching local stiffness blocks.
@@ -68,6 +72,8 @@ def partial_stiff(
         matrix with size `(len(seq) - 1) * ndims`.
     ndims : int, default 6
         Number of degrees of freedom per base-pair step.
+    verbose : bool, default False
+        If True, print progress information during block generation.
 
     Returns
     -------
@@ -111,6 +117,7 @@ def partial_stiff(
             overlap_size,
             tail_size,
             ndims=ndims,
+            verbose=verbose,
         )
     else:
         gs, stiff = _partial_stiff_linear(
@@ -121,10 +128,8 @@ def partial_stiff(
             overlap_size,
             tail_size,
             ndims=ndims,
+            verbose=verbose,
         )
-    # if isinstance(stiff,BlockOverlapMatrix):
-    #     print('convert to sparse')
-    #     stiff = stiff.to_sparse()
     return gs, stiff
 
 
@@ -140,6 +145,7 @@ def _partial_stiff_linear(
     overlap_size: int,
     tail_size: int,
     ndims: int = 6,
+    verbose: bool = False,
 ) -> Tuple[np.ndarray, BlockOverlapMatrix]:
     Nseq = len(seq)
     N = Nseq - 1
@@ -159,6 +165,8 @@ def _partial_stiff_linear(
     gs = np.zeros(ndims * N)
     cnts = np.zeros(ndims * N)
 
+    if verbose:
+        print(f"Generating {Nsegs} stiffness blocks for {N} base-pair steps")
     for i in range(Nsegs):
         # block range
         id1 = i * block_incr
@@ -170,7 +178,8 @@ def _partial_stiff_linear(
             id2 = N
         assert id2 <= N, "bu exceeds bounds for seg other than last."
 
-        print(f"Generating stiffness from bps {id1} to {id2} ({N} in total).")
+        if verbose:
+            print_progress(i + 1, Nsegs, prefix='Progress:', suffix=f'Block {i+1}/{Nsegs} (bps {id1}-{id2})')
 
         pgs, pstiff = _extract_bps_stiff(
             seq,
@@ -210,6 +219,7 @@ def _partial_stiff_closed(
     overlap_size: int,
     tail_size: int,
     ndims: int = 6,
+    verbose: bool = False,
 ) -> Tuple[np.ndarray, BlockOverlapMatrix]:
     # the main sequence includes the step connecting the last and first bp
     # the full sequence includes the overlap region on top of that
@@ -235,6 +245,8 @@ def _partial_stiff_closed(
     gs = np.zeros(ndims * N_main)
     cnts = np.zeros(ndims * N_main)
 
+    if verbose:
+        print(f"Generating {Nsegs} stiffness blocks for {N_full} base-pair steps (closed topology)")
     for i in range(Nsegs):
         # block range
         id1 = i * block_incr
@@ -243,7 +255,8 @@ def _partial_stiff_closed(
         if i == lastseg_id and id2 < N_full:
             id2 = N_full
             
-        print(f"Generating stiffness from bps {id1} to {id2} ({N_full} in total).")
+        if verbose:
+            print_progress(i + 1, Nsegs, prefix='Progress:', suffix=f'Block {i+1}/{Nsegs} (bps {id1}-{id2})')
 
         pgs, pstiff = _extract_bps_stiff(
             seq,

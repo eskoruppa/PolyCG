@@ -92,7 +92,7 @@ if __name__ == "__main__":
     cgnap_setname = 'curves_plus'
     
     params = gen_params(
-        model , 
+        model, 
         seq,
         composite_size,
         closed=closed,
@@ -100,8 +100,20 @@ if __name__ == "__main__":
         end_id=end_id,
         allow_partial=allow_partial,
         allow_crop=allow_crop,
-        cgnap_setname = cgnap_setname
+        cgnap_setname = cgnap_setname,
+        verbose=True,
+        print_info=False,
     )
+    
+    print(f"\nParameter shapes:")
+    print(f"  shape_params: {params.shape_params.shape}")
+    print(f"  stiffmat: {params.stiffmat.shape}")
+    if params.cg_shape_params is not None:
+        print(f"  cg_shape_params: {params.cg_shape_params.shape}")
+    if params.cg_stiffmat is not None:
+        print(f"  cg_stiffmat: {params.cg_stiffmat.shape}")
+    
+    sys.exit(0)
     
     if args.output_basename is None:
         if args.sequence_file is None:
