@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .SO3 import so3
+from ..SO3 import so3
 
 
 def midstep_excess_vals(
