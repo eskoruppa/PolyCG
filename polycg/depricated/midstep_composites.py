@@ -4,11 +4,6 @@ import numpy as np
 
 from .SO3 import so3
 
-raise ImportError(
-    "The midstep_composites module has been deprecated and removed from active use. "
-    "This module is no longer maintained. "
-    "If you require this functionality, please restore from git history or contact maintainers."
-)
 
 def midstep_excess_vals(
     groundstate: np.ndarray,  # shape (N, 6): SE(3) parameters for N base-pair steps
