@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Tuple, Callable, Any, Dict
 
 from ..SO3 import so3
 from ..pyConDec.pycondec import cond_jit
@@ -12,14 +11,25 @@ from ..pyConDec.pycondec import cond_jit
 ##########################################################################################################
 
 
-def euler2rotmat(eulers: np.ndarray, rotation_first: bool = True) -> np.ndarray:
-    """Converts configuration of euler vectors into collection of rotation matrices
-
+def euler2rotmat(
+    eulers: np.ndarray,  # shape (..., N, 3) or (..., N, 6): Euler angles
+    rotation_first: bool = True
+) -> np.ndarray:  # shape (..., N, 3, 3) or (..., N, 4, 4): rotation/transformation matrices
+    """
+    Convert Euler vector configuration to rotation/transformation matrices.
+    
+    Handles both SO(3) (3-vectors, rotation only) and SE(3) (6-vectors, rotation + translation)
+    representations. Recursively processes higher-dimensional arrays.
+    
     Args:
-        eulers (np.ndarray): Collection of euler vectors (...,N,3)
-
+        eulers: Collection of Euler vectors. Last dimension must be 3 (SO(3)) or 6 (SE(3)).
+        rotation_first: For 6-vectors, if True, first 3 components are rotation (Euler angles).
+    
     Returns:
-        np.ndarray: collection of rotation matrices (...,N,3,3)
+        Collection of rotation matrices (3x3 for SO(3)) or transformation matrices (4x4 for SE(3)).
+    
+    Raises:
+        ValueError: If last dimension is not 3 or 6.
     """
 
     if eulers.shape[-1] == 6:
@@ -46,14 +56,25 @@ def euler2rotmat(eulers: np.ndarray, rotation_first: bool = True) -> np.ndarray:
     return rotmats
 
 
-def rotmat2euler(rotmats: np.ndarray, rotation_first: bool = True) -> np.ndarray:
-    """Converts collection of rotation matrices into collection of euler vectors
-
+def rotmat2euler(
+    rotmats: np.ndarray,  # shape (..., N, 3, 3) or (..., N, 4, 4): rotation/transformation matrices
+    rotation_first: bool = True
+) -> np.ndarray:  # shape (..., N, 3) or (..., N, 6): Euler vectors
+    """
+    Convert rotation/transformation matrices to Euler vectors.
+    
+    Inverse operation of euler2rotmat. Handles both SO(3) (3x3) and SE(3) (4x4) matrices.
+    Recursively processes higher-dimensional arrays.
+    
     Args:
-        rotmats (np.ndarray): collection of rotation matrices (...,N,3,3)
-
+        rotmats: Collection of rotation matrices (3x3) or transformation matrices (4x4).
+        rotation_first: For 4x4 matrices, if True, rotation components come first in output.
+    
     Returns:
-        np.ndarray: Collection of euler vectrs (...,N,3)
+        Collection of Euler vectors (3-vectors for SO(3), 6-vectors for SE(3)).
+    
+    Raises:
+        ValueError: If matrix dimensions are not 3x3 or 4x4.
     """
     if rotmats.shape[-2:] == (4,4):
         use_se3 = True
@@ -79,14 +100,22 @@ def rotmat2euler(rotmats: np.ndarray, rotation_first: bool = True) -> np.ndarray
     return eulers
 
 
-def euler2rotmat_se3(eulers: np.ndarray, rotation_first: bool = True) -> np.ndarray:
-    """Converts configuration of euler vectors into collection of rotation matrices
-
+def euler2rotmat_se3(
+    eulers: np.ndarray,  # shape (..., N, 6) or (6,): SE(3) Euler vectors
+    rotation_first: bool = True
+) -> np.ndarray:  # shape (..., N, 4, 4) or (4, 4): SE(3) transformation matrices
+    """
+    Convert SE(3) Euler vectors to 4x4 transformation matrices.
+    
+    Specialized function for SE(3) transformations (rotation + translation).
+    Handles single vectors or collections, recursively processing higher dimensions.
+    
     Args:
-        eulers (np.ndarray): Collection of euler vectors (...,N,3)
-
+        eulers: SE(3) Euler vectors with 6 components (3 rotation + 3 translation).
+        rotation_first: If True, first 3 components are rotation (Euler angles).
+    
     Returns:
-        np.ndarray: collection of rotation matrices (...,N,3,3)
+        4x4 homogeneous transformation matrices representing SE(3) transformations.
     """
     # if eulers.shape[-1] != 6:
     #     raise ValueError(f"Expected set of 6-vectors. Instead received shape {eulers.shape}")
@@ -103,14 +132,22 @@ def euler2rotmat_se3(eulers: np.ndarray, rotation_first: bool = True) -> np.ndar
     return rotmats
 
 
-def rotmat2euler_se3(rotmats: np.ndarray, rotation_first: bool = True) -> np.ndarray:
-    """Converts collection of rotation matrices into collection of euler vectors
-
+def rotmat2euler_se3(
+    rotmats: np.ndarray,  # shape (..., N, 4, 4) or (4, 4): SE(3) transformation matrices
+    rotation_first: bool = True
+) -> np.ndarray:  # shape (..., N, 6) or (6,): SE(3) Euler vectors
+    """
+    Convert SE(3) transformation matrices to Euler vectors.
+    
+    Inverse operation of euler2rotmat_se3. Extracts rotation and translation
+    components from 4x4 homogeneous transformation matrices.
+    
     Args:
-        rotmats (np.ndarray): collection of rotation matrices (...,N,3,3)
-
+        rotmats: 4x4 SE(3) transformation matrices.
+        rotation_first: If True, rotation components come first in output vectors.
+    
     Returns:
-        np.ndarray: Collection of euler vectrs (...,N,3)
+        6-component vectors with rotation (Euler angles) and translation.
     """
     if rotmats.shape == (4,4):
         return so3.se3_rotmat2euler(rotmats,rotation_first=rotation_first)
@@ -130,14 +167,22 @@ def rotmat2euler_se3(rotmats: np.ndarray, rotation_first: bool = True) -> np.nda
 ##########################################################################################################
 
 
-def cayley2rotmat_se3(cayleys: np.ndarray, rotation_first: bool = True) -> np.ndarray:
-    """Converts configuration of euler vectors into collection of rotation matrices
-
+def cayley2rotmat_se3(
+    cayleys: np.ndarray,  # shape (..., N, 6) or (6,): Cayley vectors
+    rotation_first: bool = True
+) -> np.ndarray:  # shape (..., N, 4, 4) or (4, 4): SE(3) transformation matrices
+    """
+    Convert SE(3) Cayley vectors to 4x4 transformation matrices.
+    
+    Uses Cayley map for rotation parametrization instead of Euler angles.
+    The Cayley map is the default parametrization in cnDNA.
+    
     Args:
-        eulers (np.ndarray): Collection of euler vectors (...,N,3)
-
+        cayleys: SE(3) Cayley vectors with 6 components (3 rotation + 3 translation).
+        rotation_first: If True, first 3 components are rotation (Cayley parameters).
+    
     Returns:
-        np.ndarray: collection of rotation matrices (...,N,3,3)
+        4x4 homogeneous transformation matrices.
     """
     # if cayleys.shape[-1] != 3:
     #     raise ValueError(f"Expected set of 3-vectors. Instead received shape {cayleys.shape}")
@@ -154,14 +199,22 @@ def cayley2rotmat_se3(cayleys: np.ndarray, rotation_first: bool = True) -> np.nd
     return rotmats
 
 
-def rotmat2cayley_se3(rotmats: np.ndarray, rotation_first: bool = True) -> np.ndarray:
-    """Converts collection of rotation matrices into collection of euler vectors
-
+def rotmat2cayley_se3(
+    rotmats: np.ndarray,  # shape (..., N, 4, 4) or (4, 4): SE(3) transformation matrices
+    rotation_first: bool = True
+) -> np.ndarray:  # shape (..., N, 6) or (6,): Cayley vectors
+    """
+    Convert SE(3) transformation matrices to Cayley vectors.
+    
+    Inverse operation of cayley2rotmat_se3. Extracts rotation (using Cayley map)
+    and translation components from 4x4 homogeneous transformation matrices.
+    
     Args:
-        rotmats (np.ndarray): collection of rotation matrices (...,N,3,3)
-
+        rotmats: 4x4 SE(3) transformation matrices.
+        rotation_first: If True, rotation components come first in output vectors.
+    
     Returns:
-        np.ndarray: Collection of euler vectors (...,N,3)
+        6-component vectors with rotation (Cayley parameters) and translation.
     """
     if rotmats.shape == (4,4):
         return so3.se3_rotmat2cayley(rotmats,rotation_first=rotation_first)
@@ -180,17 +233,27 @@ def rotmat2cayley_se3(rotmats: np.ndarray, rotation_first: bool = True) -> np.nd
 ##########################################################################################################
 
 
-def vecs2rotmats_se3(vecs: np.ndarray, rotation_map: str = "euler", rotation_first: bool = True) -> np.ndarray:
-    """Converts configuration of vectors into collection of rotation matrices
-
+def vecs2rotmats_se3(
+    vecs: np.ndarray,  # shape (..., N, 6): SE(3) parameter vectors
+    rotation_map: str = "euler",
+    rotation_first: bool = True
+) -> np.ndarray:  # shape (..., N, 4, 4): SE(3) transformation matrices
+    """
+    Convert SE(3) vectors to transformation matrices using specified rotation map.
+    
+    Flexible conversion function that supports different rotation parametrizations.
+    Dispatches to appropriate conversion function based on rotation_map.
+    
     Args:
-        vecs (np.ndarray): Collection of rotational vectors (...,N,3)
-        rotation_map (str): selected map between rotation rotation coordinates and rotation matrix.
-                Options:    - cayley: default cnDNA map (Cayley map)
-                            - euler:  Axis angle representation.
-
+        vecs: SE(3) parameter vectors (6 components).
+        rotation_map: Rotation parametrization - "euler" for Euler angles or "cayley" for Cayley map.
+        rotation_first: If True, first 3 components are rotation parameters.
+    
     Returns:
-        np.ndarray: collection of rotation matrices (...,N,3,3)
+        4x4 homogeneous transformation matrices.
+    
+    Raises:
+        ValueError: If rotation_map is not "euler" or "cayley".
     """
     if rotation_map == "euler":
         return euler2rotmat_se3(vecs,rotation_first=rotation_first)
@@ -200,17 +263,27 @@ def vecs2rotmats_se3(vecs: np.ndarray, rotation_map: str = "euler", rotation_fir
         raise ValueError(f'Unknown rotation_map "{rotation_map}"')
 
 
-def rotmat2vec_se3(rotmats: np.ndarray, rotation_map: str = "euler", rotation_first: bool = True) -> np.ndarray:
-    """Converts collection of rotation matrices into collection of vectors
-
+def rotmat2vec_se3(
+    rotmats: np.ndarray,  # shape (..., N, 4, 4): SE(3) transformation matrices
+    rotation_map: str = "euler",
+    rotation_first: bool = True
+) -> np.ndarray:  # shape (..., N, 6): SE(3) parameter vectors
+    """
+    Convert SE(3) transformation matrices to vectors using specified rotation map.
+    
+    Flexible conversion function that supports different rotation parametrizations.
+    Dispatches to appropriate conversion function based on rotation_map.
+    
     Args:
-        rotmats (np.ndarray): collection of rotation matrices (...,N,3,3)
-        rotation_map (str): selected map between rotation rotation coordinates and rotation matrix.
-                Options:    - cayley: default cnDNA map (Cayley map)
-                            - euler:  Axis angle representation.
-
+        rotmats: 4x4 SE(3) transformation matrices.
+        rotation_map: Rotation parametrization - "euler" for Euler angles or "cayley" for Cayley map.
+        rotation_first: If True, rotation components come first in output vectors.
+    
     Returns:
-        np.ndarray: Collection of vectors (...,N,3)
+        6-component parameter vectors (rotation + translation).
+    
+    Raises:
+        ValueError: If rotation_map is not "euler" or "cayley".
     """
     if rotation_map == "euler":
         return rotmat2euler_se3(rotmats,rotation_first=rotation_first)
@@ -225,15 +298,27 @@ def rotmat2vec_se3(rotmats: np.ndarray, rotation_map: str = "euler", rotation_fi
 ##########################################################################################################
 
 
-def rotmat2triad_se3(rotmats: np.ndarray, first_triad=None, midstep_trans: bool = False) -> np.ndarray:
-    """Converts collection of se3 matrices into collection of se3-triads
-
+def rotmat2triad_se3(
+    rotmats: np.ndarray,  # shape (..., N, 4, 4): SE(3) transformation matrices
+    first_triad=None,  # shape (4, 4) or None: initial triad orientation
+    midstep_trans: bool = False
+) -> np.ndarray:  # shape (..., N+1, 4, 4): SE(3) triads
+    """
+    Convert SE(3) transformation matrices to triads (coordinate frames).
+    
+    Accumulates transformations to build a chain of local coordinate frames (triads).
+    Each triad represents the orientation and position of a reference frame.
+    
     Args:
-        rotmats (np.ndarray): set of rotation matrices that constitute the local junctions in the chain of triads. (...,N,4,4)
-        first_triad (None or np.ndarray): rotation of first triad. Should be none or single triad. For now only supports identical rotation for all snapshots.
-
+        rotmats: Local transformation matrices connecting consecutive triads.
+        first_triad: Initial triad orientation (default: identity, positioned at origin).
+        midstep_trans: If True, use midstep frame for translations.
+    
     Returns:
-        np.ndarray: set of triads (...,N+1,3,3)
+        Chain of triads (N+1 triads for N transformations).
+    
+    Raises:
+        ValueError: If rotmats are not 4x4 matrices.
     """
     if rotmats.shape[-2:] != (4,4):
         raise ValueError(f'Invalid shape of rotmats. Expected set of 4x4 matrices, but reseived ndarray of shape {rotmats.shape}')
@@ -264,14 +349,25 @@ def rotmat2triad_se3(rotmats: np.ndarray, first_triad=None, midstep_trans: bool 
     return triads
 
 
-def triad2rotmat_se3(triads: np.ndarray, midstep_trans: bool = False) -> np.ndarray:
-    """Converts set of triads into set of rotation matrices
-
+def triad2rotmat_se3(
+    triads: np.ndarray,  # shape (..., N+1, 4, 4): SE(3) triads
+    midstep_trans: bool = False
+) -> np.ndarray:  # shape (..., N, 4, 4): SE(3) transformation matrices
+    """
+    Convert chain of triads to local transformation matrices.
+    
+    Inverse operation of rotmat2triad_se3. Computes the transformation matrices
+    connecting consecutive triads in a chain.
+    
     Args:
-        triads (np.ndarray): set of triads (...,N+1,3,3)
-
+        triads: Chain of coordinate frames (N+1 triads).
+        midstep_trans: If True, use midstep frame for translations.
+    
     Returns:
-        np.ndarray: set of rotation matrices (...,N,3,3)
+        Local transformation matrices (N transformations for N+1 triads).
+    
+    Raises:
+        ValueError: If triads are not 4x4 matrices.
     """
     if triads.shape[-2:] != (4,4):
         raise ValueError(f'Invalid shape of triads. Expected set of 4x4 matrices, but reseived ndarray of shape {triads.shape}')
@@ -297,7 +393,21 @@ def triad2rotmat_se3(triads: np.ndarray, midstep_trans: bool = False) -> np.ndar
 ######### Conversion of rotation matrices between midstep and normal definition of translations ##########
 ##########################################################################################################
 
-def transformations_midstep2triad_se3(se3_gs: np.ndarray) -> np.ndarray:
+def transformations_midstep2triad_se3(
+    se3_gs: np.ndarray  # shape (..., N, 4, 4): SE(3) matrices with midstep translations
+) -> np.ndarray:  # shape (..., N, 4, 4): SE(3) matrices with triad translations
+    """
+    Convert SE(3) transformations from midstep to triad translation definition.
+    
+    Transforms translation components from midstep frame (halfway between triads)
+    to standard triad frame. This affects how translations are interpreted.
+    
+    Args:
+        se3_gs: SE(3) transformation matrices with translations in midstep frame.
+    
+    Returns:
+        SE(3) transformation matrices with translations in triad frame.
+    """
     midgs = np.zeros(se3_gs.shape)
     if len(se3_gs.shape) > 3:
         for i in range(len(se3_gs)):
@@ -308,7 +418,21 @@ def transformations_midstep2triad_se3(se3_gs: np.ndarray) -> np.ndarray:
         midgs[i] = so3.se3_transformation_midstep2triad(g)
     return midgs  
 
-def transformations_triad2midstep_se3(se3_midgs: np.ndarray) -> np.ndarray:
+def transformations_triad2midstep_se3(
+    se3_midgs: np.ndarray  # shape (..., N, 4, 4): SE(3) matrices with triad translations
+) -> np.ndarray:  # shape (..., N, 4, 4): SE(3) matrices with midstep translations
+    """
+    Convert SE(3) transformations from triad to midstep translation definition.
+    
+    Inverse operation of transformations_midstep2triad_se3. Transforms translation
+    components from standard triad frame to midstep frame.
+    
+    Args:
+        se3_midgs: SE(3) transformation matrices with translations in triad frame.
+    
+    Returns:
+        SE(3) transformation matrices with translations in midstep frame.
+    """
     gs = np.zeros(se3_midgs.shape)
     if len(se3_midgs.shape) > 3:
         for i in range(len(se3_midgs)):
@@ -324,7 +448,21 @@ def transformations_triad2midstep_se3(se3_midgs: np.ndarray) -> np.ndarray:
 ######### Inversion of elements of SE3 ###################################################################
 ##########################################################################################################
 
-def invert_se3(se3s: np.ndarray) -> np.ndarray:
+def invert_se3(
+    se3s: np.ndarray  # shape (..., N, 4, 4): SE(3) transformation matrices
+) -> np.ndarray:  # shape (..., N, 4, 4): inverted SE(3) matrices
+    """
+    Compute inverses of SE(3) transformation matrices.
+    
+    For homogeneous transformation matrices, computes the proper inverse
+    that accounts for both rotation and translation components.
+    
+    Args:
+        se3s: SE(3) transformation matrices to invert.
+    
+    Returns:
+        Inverse transformation matrices.
+    """
     inverses = np.zeros(se3s.shape)
     if len(se3s.shape) > 3:
         for i in range(len(se3s)):
@@ -335,7 +473,24 @@ def invert_se3(se3s: np.ndarray) -> np.ndarray:
         inverses[i] = so3.se3_transformation_midstep2triad(se3)
     return inverses      
 
-def invert(rotmats: np.ndarray) -> np.ndarray:
+def invert(
+    rotmats: np.ndarray  # shape (..., N, 3, 3) or (..., N, 4, 4): rotation/transformation matrices
+) -> np.ndarray:  # shape (..., N, 3, 3) or (..., N, 4, 4): inverted matrices
+    """
+    Compute inverses of rotation or transformation matrices.
+    
+    Handles both SO(3) (3x3 rotation matrices) and SE(3) (4x4 transformation matrices).
+    For SO(3), uses transpose; for SE(3), uses proper SE(3) inverse.
+    
+    Args:
+        rotmats: Rotation matrices (3x3) or transformation matrices (4x4).
+    
+    Returns:
+        Inverse matrices (same dimensions as input).
+    
+    Raises:
+        ValueError: If matrix dimensions are not 3x3 or 4x4.
+    """
     if rotmats.shape != (3,3) and rotmats.shape != (4,4):
         raise ValueError(f'Invalid rotmats dimension {rotmats.shape}. Should be 3x3 or 4x4.')
     
@@ -357,15 +512,23 @@ def invert(rotmats: np.ndarray) -> np.ndarray:
 ############### Generate positions from triads ###########################################################
 ##########################################################################################################
 
-def triads2positions(triads: np.ndarray, disc_len=0.34) -> np.ndarray:
-    """generates a set of position vectors from a set of triads
-
+def triads2positions(
+    triads: np.ndarray,  # shape (..., N, 3, 3) or (..., N, 4, 4): coordinate triads
+    disc_len: float = 0.34
+) -> np.ndarray:  # shape (..., N, 3): position vectors
+    """
+    Generate position vectors from coordinate triads.
+    
+    Computes positions by accumulating displacements along the local z-axis
+    (third column) of each triad. Default discretization length is 0.34 nm,
+    typical for DNA base pair spacing.
+    
     Args:
-        triads (np.ndarray): set of trads (...,N,3,3)
-        disc_len (float): discretization length
-
+        triads: Coordinate frames (triads) defining local orientations.
+        disc_len: Discretization length (spacing between positions) in nm.
+    
     Returns:
-        np.ndarray: set of position vectors (...,N,3)
+        Position vectors in 3D space.
     """
     pos = np.zeros(triads.shape[:-1])
     if len(triads.shape) > 3:

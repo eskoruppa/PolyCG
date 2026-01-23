@@ -2,7 +2,6 @@ from __future__ import annotations
 import sys, os
 import numpy as np
 import scipy as sp
-from typing import List, Tuple, Callable, Any, Dict
 
 from .SO3 import so3
 from .transforms.transform_SO3 import euler2rotmat_so3
@@ -22,8 +21,8 @@ import time
 CG_PARTIAL_CUTOFF = 240
 
 def coarse_grain(
-    groundstate: np.ndarray,
-    stiffmat: np.ndarray | sp.sparse.spmatrix,
+    groundstate: np.ndarray,  # shape (N, 3) or (N, 6): SO(3) or SE(3) parameters
+    stiffmat: np.ndarray | sp.sparse.spmatrix,  # shape (N*ndims, N*ndims): stiffness matrix
     composite_size: int,
     start_id: int = 0,
     end_id: int = None,
@@ -37,7 +36,7 @@ def coarse_grain(
     use_sparse: bool = True,
     verbose: bool = False,
     print_info: bool = False,
-):   
+) -> tuple[np.ndarray, np.ndarray | sp.sparse.spmatrix]:  # (cg_groundstate, cg_stiffmat)   
      
     if len(groundstate.shape) != 2:
         raise ValueError(f'Shape of groundstate should be (N,ndims), but encountered {groundstate.shape}.')
@@ -97,9 +96,9 @@ def coarse_grain(
 ############################################################################################
 
 def cg_groundstate(
-    groundstate: np.ndarray,
+    groundstate: np.ndarray,  # shape (N, 3) or (N, 6): SO(3) or SE(3) parameters
     composite_size: int,
-) -> np.ndarray:
+) -> np.ndarray:  # shape (N//composite_size, 3) or (N//composite_size, 6): coarse-grained groundstate
 
     if len(groundstate.shape) != 2:
         raise ValueError(f'Shape of groundstate should be (N,ndims), but encountered {groundstate.shape}.')
@@ -114,13 +113,13 @@ def cg_groundstate(
 ####################### Coarse Grain stiffness matrix ######################################
 ############################################################################################
 def cg_stiffmat(
-    groundstate: np.ndarray,
-    stiffmat: np.ndarray | sp.sparse.spmatrix,
+    groundstate: np.ndarray,  # shape (N, 3) or (N, 6): SO(3) or SE(3) parameters
+    stiffmat: np.ndarray | sp.sparse.spmatrix,  # shape (N*ndims, N*ndims): stiffness matrix
     composite_size: int,
     closed: bool = False,
     substitute_block: int = -1,
     use_sparse: bool = True
-) -> np.ndarray | sp.sparse.spmatrix:   
+) -> np.ndarray | sp.sparse.spmatrix:  # shape (Ncg*ndims, Ncg*ndims): coarse-grained stiffness   
 
     if closed:
         raise NotImplementedError('Partial coarse graining is not yet implemented for closed chains')
@@ -164,12 +163,12 @@ def cg_stiffmat(
 ############################################################################################
 
 def _crop_gs(
-    gs: np.ndarray,
+    gs: np.ndarray,  # shape (N, ndims): groundstate parameters
     composite_size: int,
     start_id: int,
     end_id: int,
     match_crop: bool = True
-    ) -> np.ndarray:
+    ) -> np.ndarray:  # shape (M, ndims): cropped groundstate
     ndims = gs.shape[-1]
     if end_id is None:
         end_id = len(gs)
@@ -184,13 +183,13 @@ def _crop_gs(
     return gs
 
 def _crop_gs_and_stiff(
-    gs: np.ndarray,
-    stiff: np.ndarray | sp.sparse.spmatrix,
+    gs: np.ndarray,  # shape (N, ndims): groundstate parameters
+    stiff: np.ndarray | sp.sparse.spmatrix,  # shape (N*ndims, N*ndims): stiffness matrix
     composite_size: int,
     start_id: int,
     end_id: int,
     match_crop: bool = True,
-    ) -> Tuple[np.ndarray,np.ndarray | sp.sparse.spmatrix]:
+    ) -> tuple[np.ndarray, np.ndarray | sp.sparse.spmatrix]:  # (cropped_gs, cropped_stiff)
     ndims = gs.shape[-1]
     if end_id is None:
         end_id = len(gs)
@@ -213,8 +212,8 @@ def _crop_gs_and_stiff(
 CG_PARTIALS_MIN_BLOCK = 4
 
 def cg_stiff_partial(
-    groundstate: np.ndarray,
-    stiffmat: np.ndarray | sp.sparse.spmatrix,
+    groundstate: np.ndarray,  # shape (N, 3) or (N, 6): SO(3) or SE(3) parameters
+    stiffmat: np.ndarray | sp.sparse.spmatrix,  # shape (N*ndims, N*ndims): stiffness matrix
     composite_size: int,
     block_ncomp: int,
     overlap_ncomp: int,
@@ -223,7 +222,7 @@ def cg_stiff_partial(
     substitute_block: int = -1,
     use_sparse: bool = True,
     verbose: bool = False,
-) -> np.ndarray | sp.sparse.spmatrix:
+) -> np.ndarray | sp.sparse.spmatrix:  # shape (Ncg*ndims, Ncg*ndims): coarse-grained stiffness
 
     if len(groundstate.shape) != 2:
         raise ValueError(f'Shape of groundstate should be (N,ndims), but encountered {groundstate.shape}.')
@@ -262,8 +261,8 @@ def cg_stiff_partial(
     
     
 def _cg_stiff_partial_linear(
-    gs: np.ndarray,
-    stiff: np.ndarray | sp.sparse.spmatrix,
+    gs: np.ndarray,  # shape (N, 3) or (N, 6): SO(3) or SE(3) parameters
+    stiff: np.ndarray | sp.sparse.spmatrix,  # shape (N*ndims, N*ndims): stiffness matrix
     composite_size: int,
     block_ncomp: int,
     overlap_ncomp: int,
@@ -271,7 +270,7 @@ def _cg_stiff_partial_linear(
     substitute_block: int = -1,
     use_sparse: bool = True,
     verbose: bool = False,
-) -> sp.sparse.spmatrix:
+) -> sp.sparse.spmatrix:  # shape (Ncg*ndims, Ncg*ndims): coarse-grained stiffness
     
     if len(gs.shape) != 2:
         raise ValueError(f'Shape of groundstate should be (N,ndims), but encountered {gs.shape}.')

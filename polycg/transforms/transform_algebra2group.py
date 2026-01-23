@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Tuple, Callable, Any, Dict
 from ..SO3 import so3
 from .transform_statevec import statevec2vecs
 from .transform_SE3 import euler2rotmat, rotmat2euler, invert
@@ -67,10 +66,10 @@ from .transform_SE3 import euler2rotmat, rotmat2euler, invert
 ##########################################################################################################
 
 def algebra2group_lintrans(
-    groundstate_algebra: np.ndarray, 
+    groundstate_algebra: np.ndarray,  # shape (N, 3) or (N, 6): groundstate in algebra splitting
     rotation_first: bool = True,
     translation_as_midstep: bool = False
-    ) -> np.ndarray:
+    ) -> np.ndarray:  # shape (N*3, N*3) or (N*6, N*6): linear transformation matrix
     """Linearization of the transformation of dynamic components from algebra (vector) to group (matrix) splitting between static and dynamic parts. Optionally the transformations from midstep triad definition to triad definition of the translational component may also be included. 
 
     Args:
@@ -144,7 +143,6 @@ def algebra2group_lintrans(
             rto = sid+rot_to
             tfr = sid+trans_from
             tto = sid+trans_to
-            
             HX[rfr:rto,rfr:rto] = H
             
             if translation_as_midstep:
@@ -164,10 +162,10 @@ def algebra2group_lintrans(
 
 
 def group2algebra_lintrans(
-    groundstate_group: np.ndarray, 
+    groundstate_group: np.ndarray,  # shape (N, 3) or (N, 6): groundstate in group splitting
     rotation_first: bool = True,
     translation_as_midstep: bool = False
-    ) -> np.ndarray:
+    ) -> np.ndarray:  # shape (N*3, N*3) or (N*6, N*6): linear transformation matrix
     """Linearization of the transformation of dynamic components from group (matrix) to algebra (vector) splitting between static and dynamic parts. Optionally the translational component may be expressed in terms of the midstep triad. 
 
     Args:
@@ -264,11 +262,11 @@ def group2algebra_lintrans(
 ##########################################################################################################
 
 def algebra2group_stiffmat(
-    groundstate_algebra: np.ndarray, 
-    stiff_algebra: np.ndarray, 
+    groundstate_algebra: np.ndarray,  # shape (N, 3) or (N, 6): groundstate in algebra splitting
+    stiff_algebra: np.ndarray,  # shape (N*ndims, N*ndims): stiffness matrix in algebra definition
     rotation_first: bool = True,
     translation_as_midstep: bool = False
-    ) -> np.ndarray:
+    ) -> np.ndarray:  # shape (N*ndims, N*ndims): stiffness matrix in group definition
     """Converts stiffness matrix from algebra-level (vector) splitting between static 
     and dynamic component to group-level (matrix) splitting. Optionally, the transformations 
     from midstep triad definition to triad definition of the translational component may 
@@ -335,11 +333,11 @@ def algebra2group_stiffmat(
 
 
 def group2algebra_stiffmat(
-    groundstate_group: np.ndarray, 
-    stiff_group: np.ndarray, 
+    groundstate_group: np.ndarray,  # shape (N, 3) or (N, 6): groundstate in group splitting
+    stiff_group: np.ndarray,  # shape (N*ndims, N*ndims): stiffness matrix in group definition
     rotation_first: bool = True,
     translation_as_midstep: bool = False
-    ) -> np.ndarray:
+    ) -> np.ndarray:  # shape (N*ndims, N*ndims): stiffness matrix in algebra definition
     """Converts stiffness matrix from group-level (matrix) splitting between static and dynamic component to algebra-level (vector) splitting. Optionally, the transformations from midstep triad definition to triad definition of the translational component may also be included. I.e. the final 
     definition will assume a midstep triad definition of the translational component. 
 

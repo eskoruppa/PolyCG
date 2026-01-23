@@ -1,21 +1,28 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Tuple, Callable, Any, Dict
 
 
 ##########################################################################################################
 ############### Conversions between state vectors (3N) and 3-vectors (N,3) ###############################
 ##########################################################################################################
 
-def statevec2vecs(statevec: np.ndarray, vdim: int) -> np.ndarray:
-    """reshapes configuration of full state (vdim*N) vectors into vdim-vectors. Turns last dimensions from (vdim*N) to (N,vdim)
+def statevec2vecs(statevec: np.ndarray, vdim: int) -> np.ndarray:  # shape (..., vdim*N) -> (..., N, vdim)
+    """Reshape state vectors from flat format (vdim*N) to vector format (N, vdim).
+    
+    Converts the last dimension from flat state vector representation to structured
+    vector format. For example, converts (3*N,) to (N, 3) for 3D vectors.
 
     Args:
-        vecs (np.ndarray): collection of state vectors
+        statevec: State vector array with last dimension of size (vdim*N). If already
+                 in shape (..., vdim), returns unchanged.
+        vdim: Dimension of individual vectors (e.g., 3 for 3D, 6 for SE(3)).
 
     Returns:
-        np.ndarray: collection of vdim-vectors
+        Reshaped array with last dimension split into (N, vdim).
+        
+    Raises:
+        ValueError: If last dimension size is not a multiple of vdim.
     """
     if statevec.shape[-1] == vdim:
         return statevec
@@ -30,14 +37,18 @@ def statevec2vecs(statevec: np.ndarray, vdim: int) -> np.ndarray:
     return np.reshape(statevec, tuple(newshape))
 
 
-def vecs2statevec(vecs: np.ndarray) -> np.ndarray:
-    """reshapes configuration of vdim-vectors into full state (vdim*N) vectors. Turns last dimensions from (N,vdim) to (vdim*N,)
+def vecs2statevec(vecs: np.ndarray) -> np.ndarray:  # shape (..., N, vdim) -> (..., vdim*N)
+    """Reshape vector format (N, vdim) to flat state vector format (vdim*N).
+    
+    Converts structured vector representation to flat state vector format. Merges the
+    last two dimensions (N, vdim) into a single flat dimension (vdim*N).
 
     Args:
-        vecs (np.ndarray): collection of vdim-vectors
+        vecs: Vector array with shape (..., N, vdim), where N is number of vectors
+             and vdim is dimension of each vector.
 
     Returns:
-        np.ndarray: collection of state vectors
+        Flattened array with last two dimensions merged into (vdim*N,).
     """
     shape = list(vecs.shape)
     newshape = shape[:-1]

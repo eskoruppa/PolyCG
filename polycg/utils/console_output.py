@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sys
 
-def print_progress(current: int, total: int, prefix: str = '', suffix: str = '', bar_length: int = 40):
+def print_progress(current: int, total: int, prefix: str = '', suffix: str = '', bar_length: int = 40) -> None:
     """
     Print a progress bar to stdout that updates in place.
     

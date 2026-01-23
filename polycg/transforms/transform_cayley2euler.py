@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Tuple, Callable, Any, Dict
 from ..SO3 import so3
 from .transform_statevec import statevec2vecs
 
@@ -12,16 +11,26 @@ from .transform_statevec import statevec2vecs
 ##########################################################################################################
 
 
-def euler2cayley(eulers: np.ndarray, rotation_first: bool = True) -> np.ndarray:
-    """Converts set of Euler vectors (axis angle rotation vectors) into Rodrigues
-    vectors (Cayley vectors)
-
+def euler2cayley(
+    eulers: np.ndarray,  # shape (..., N, 3) or (..., N, 6): Euler vectors
+    rotation_first: bool = True
+) -> np.ndarray:  # shape (..., N, 3) or (..., N, 6): Cayley vectors
+    """
+    Convert Euler vectors (axis-angle) to Cayley vectors (Rodrigues).
+    
+    Transforms rotation parametrization from Euler (axis-angle) to Cayley (Rodrigues).
+    Translation components (if present) remain unchanged. Handles both SO(3) (3-vectors)
+    and SE(3) (6-vectors) representations.
+    
     Args:
-        eulers (np.ndarray): set of Euler vectors (Nx3 or Nx6). If the vectors are 6-vectors translations are assumed to be included
-        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of freedom if this variable is set to True. (default: True)
-
+        eulers: Euler vectors. Can be 3-vectors (rotation only) or 6-vectors (rotation + translation).
+        rotation_first: For 6-vectors, if True, first 3 components are rotation.
+    
     Returns:
-        np.ndarray: set of Rodrigues vectors (including the unchanged translational degrees of freedom)
+        Cayley vectors with same shape as input. Translation components unchanged.
+    
+    Raises:
+        ValueError: If vectors are not 3 or 6 dimensional.
     """
     if eulers.shape[-1] == 3:
         translations_included = False
@@ -52,16 +61,26 @@ def euler2cayley(eulers: np.ndarray, rotation_first: bool = True) -> np.ndarray:
     return cayleys
 
 
-def cayley2euler(cayleys: np.ndarray, rotation_first: bool = True) -> np.ndarray:
-    """Converts set of rodrigues vectors (Cayley vectors) into Euler vectors (axis angle
-    rotation vectors)
-
+def cayley2euler(
+    cayleys: np.ndarray,  # shape (..., N, 3) or (..., N, 6): Cayley vectors
+    rotation_first: bool = True
+) -> np.ndarray:  # shape (..., N, 3) or (..., N, 6): Euler vectors
+    """
+    Convert Cayley vectors (Rodrigues) to Euler vectors (axis-angle).
+    
+    Inverse operation of euler2cayley. Transforms rotation parametrization from
+    Cayley (Rodrigues) to Euler (axis-angle). Translation components (if present)
+    remain unchanged.
+    
     Args:
-        cayleys (np.ndarray): set of Cayley vectors (Nx3 or Nx6). If the vectors are 6-vectors translations are assumed to be included
-        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of fre
-
+        cayleys: Cayley vectors. Can be 3-vectors (rotation only) or 6-vectors (rotation + translation).
+        rotation_first: For 6-vectors, if True, first 3 components are rotation.
+    
     Returns:
-        np.ndarray: set of Euler vectors (including the unchanged translational degrees of freedom)
+        Euler vectors with same shape as input. Translation components unchanged.
+    
+    Raises:
+        ValueError: If vectors are not 3 or 6 dimensional.
     """
     if cayleys.shape[-1] == 3:
         translations_included = False
@@ -93,18 +112,24 @@ def cayley2euler(cayleys: np.ndarray, rotation_first: bool = True) -> np.ndarray
 
 
 def cayley2euler_lintrans(
-    groundstate_cayleys: np.ndarray, 
+    groundstate_cayleys: np.ndarray,  # shape (N, 3) or (N, 6): groundstate Cayley vectors
     rotation_first: bool = True
-    ) -> np.ndarray:
-    """Linearization of the transformation from Cayley to Euler vector around a given
-    groundstate vector
-
+) -> np.ndarray:  # shape (N*3, N*3) or (N*6, N*6): linear transformation matrix
+    """
+    Linearize Cayley to Euler transformation around groundstate.
+    
+    Computes the Jacobian (linear approximation) of the cayley2euler transformation
+    around a given groundstate. Useful for transforming covariances and stiffness matrices.
+    
     Args:
-        groundstate_cayleys (np.ndarray): set of groundstate Cayley vectors (Nx3 or Nx6) around which the transformation is linearly expanded. If the vectors are 6-vectors translations are assumed to be included
-        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of fre
-
+        groundstate_cayleys: Groundstate Cayley vectors defining linearization point.
+        rotation_first: For 6-vectors, if True, first 3 components are rotation.
+    
     Returns:
-        float: Linear transformation matrix that transforms small deviations around the given groundstate
+        Linear transformation matrix (Jacobian) for small deviations from groundstate.
+    
+    Raises:
+        ValueError: If vectors are not 3 or 6 dimensional, or if shape is higher than 2D.
     """
     if groundstate_cayleys.shape[-1] == 3:
         translations_included = False
@@ -144,18 +169,24 @@ def cayley2euler_lintrans(
 
 
 def euler2cayley_lintrans(
-    groundstate_eulers: np.ndarray, 
+    groundstate_eulers: np.ndarray,  # shape (N, 3) or (N, 6): groundstate Euler vectors
     rotation_first: bool = True
-    ) -> np.ndarray:
-    """Linearization of the transformation from Euler to Cayley vector around a
-    given groundstate vector
-
+) -> np.ndarray:  # shape (N*3, N*3) or (N*6, N*6): linear transformation matrix
+    """
+    Linearize Euler to Cayley transformation around groundstate.
+    
+    Computes the Jacobian (linear approximation) of the euler2cayley transformation
+    around a given groundstate. Inverse operation of cayley2euler_lintrans.
+    
     Args:
-        eulers (np.ndarray): set of groundstate Euler vectors (Nx3 or Nx6) around which the transformation is linearly expanded. If the vectors are 6-vectors translations are assumed to be included
-        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of fre
-
+        groundstate_eulers: Groundstate Euler vectors defining linearization point.
+        rotation_first: For 6-vectors, if True, first 3 components are rotation.
+    
     Returns:
-        float: Linear transformation matrix that transforms small deviations around the given groundstate
+        Linear transformation matrix (Jacobian) for small deviations from groundstate.
+    
+    Raises:
+        ValueError: If vectors are not 3 or 6 dimensional, or if shape is higher than 2D.
     """
     if groundstate_eulers.shape[-1] == 3:
         translations_included = False
@@ -201,20 +232,23 @@ def euler2cayley_lintrans(
 ##########################################################################################################
 
 def cayley2euler_stiffmat(
-    groundstate_cayley: np.ndarray, 
-    stiff: np.ndarray, 
+    groundstate_cayley: np.ndarray,  # shape (N, 3) or (N, 6): groundstate in Cayley parametrization
+    stiff: np.ndarray,  # shape (N*ndims, N*ndims): stiffness matrix in Cayley coordinates
     rotation_first: bool = True
-    ) -> np.ndarray:
-    """Converts stiffness matrix from Cayley map representation to Euler map representation. Transformation of 
-    stiffness matrix assumes the magnitude of the rotation vector to be dominated by the groundstate.
-
+) -> np.ndarray:  # shape (N*ndims, N*ndims): stiffness matrix in Euler coordinates
+    """
+    Transform stiffness matrix from Cayley to Euler parametrization.
+    
+    Converts stiffness matrix between rotation parametrizations using linearized
+    coordinate transformation. Assumes fluctuations are dominated by groundstate.
+    
     Args:
-        groundstate_cayley (np.ndarray): groundstate expressed in radians
-        stiff (np.ndarray): stiffness matrix expressed in arbitrary units
-        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of fre
-
+        groundstate_cayley: Groundstate in Cayley (Rodrigues) coordinates.
+        stiff: Stiffness matrix in Cayley parametrization.
+        rotation_first: For 6-vectors, if True, first 3 components are rotation.
+    
     Returns:
-        np.ndarray: Transformed stiffness matrix.
+        Stiffness matrix transformed to Euler (axis-angle) parametrization.
     """ 
     # Tc2e = cayley2euler_lintrans(groundstate_cayley,rotation_first=rotation_first)
     # Tc2e_inv = np.linalg.inv(Tc2e)
@@ -226,20 +260,23 @@ def cayley2euler_stiffmat(
     return stiff_euler
 
 def euler2cayley_stiffmat(
-    groundstate_euler: np.ndarray, 
-    stiff: np.ndarray, 
+    groundstate_euler: np.ndarray,  # shape (N, 3) or (N, 6): groundstate in Euler parametrization
+    stiff: np.ndarray,  # shape (N*ndims, N*ndims): stiffness matrix in Euler coordinates
     rotation_first: bool = True
-    ) -> np.ndarray:
-    """Converts stiffness matrix from Euler map representation to Cayley map representation. Transformation of 
-    stiffness matrix assumes the magnitude of the rotation vector to be dominated by the groundstate.
-
+) -> np.ndarray:  # shape (N*ndims, N*ndims): stiffness matrix in Cayley coordinates
+    """
+    Transform stiffness matrix from Euler to Cayley parametrization.
+    
+    Inverse operation of cayley2euler_stiffmat. Converts stiffness matrix between
+    rotation parametrizations using linearized coordinate transformation.
+    
     Args:
-        groundstate_euler (np.ndarray): groundstate expressed in radians
-        stiff (np.ndarray): stiffness matrix expressed in arbitrary units
-        rotation_first (bool): If the vectors are 6-vectors, the first 3 coordinates are taken to be the rotational degrees of fre
-
+        groundstate_euler: Groundstate in Euler (axis-angle) coordinates.
+        stiff: Stiffness matrix in Euler parametrization.
+        rotation_first: For 6-vectors, if True, first 3 components are rotation.
+    
     Returns:
-        np.ndarray: Transformed stiffness matrix.
+        Stiffness matrix transformed to Cayley (Rodrigues) parametrization.
     """
     # Tc2e = euler2cayley_lintrans(groundstate_euler,rotation_first=rotation_first)
     # Tc2e_inv = np.linalg.inv(Tc2e)

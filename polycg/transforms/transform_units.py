@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Tuple, Callable, Any, Dict
 
 ##########################################################################################################
 ##########################################################################################################
@@ -9,7 +8,26 @@ from typing import List, Tuple, Callable, Any, Dict
 ##########################################################################################################
 ##########################################################################################################
 
-def conversion(array: np.ndarray, factor: float, block_dim: int = 6, dofs: List[int] = None):
+def conversion(array: np.ndarray, factor: float, block_dim: int = 6, dofs: list[int] = None):  # shape (N,) or (N, N)
+    """Apply unit conversion factor to specific degrees of freedom in vectors or matrices.
+    
+    Converts units by multiplying specified degrees of freedom by a conversion factor.
+    For vectors, multiplies selected elements. For matrices, multiplies both rows and
+    columns corresponding to selected degrees of freedom.
+    
+    Args:
+        array: Vector or matrix to convert. Shape (N,) for vectors or (N, N) for matrices.
+        factor: Conversion factor to multiply selected degrees of freedom.
+        block_dim: Size of blocks in the array (e.g., 6 for SE(3) vectors).
+        dofs: List of degree of freedom indices to convert. If None, converts all elements.
+              Indices are taken modulo block_dim.
+
+    Returns:
+        Converted array with same shape as input.
+        
+    Raises:
+        ValueError: If array has more than 2 dimensions.
+    """
     dims = len(array.shape)
     # check if valid shape
     if dims > 2:

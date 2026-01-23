@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import sys
 import numpy as np
-from typing import Tuple, List, Callable, Any, Dict
+from collections.abc import Callable
+from typing import Any
 from .utils.bmat import BlockOverlapMatrix
 from .transforms.transform_statevec import statevec2vecs
 from .utils.console_output import print_progress
@@ -17,7 +18,7 @@ PARTIALS_MIN_BLOCK = 4
 def partial_stiff(
     seq: str,
     stiffgen_method: Callable,
-    stiffgen_args: Dict[str, Any],
+    stiffgen_args: dict[str, Any],
     block_size: int,
     overlap_size: int,
     tail_size: int,
@@ -25,7 +26,7 @@ def partial_stiff(
     ndims: int = 6,
     verbose: bool = False,
     print_info: bool = False,
-) -> Tuple[np.ndarray, BlockOverlapMatrix]:
+) -> tuple[np.ndarray, BlockOverlapMatrix]:
     """
     Assemble a global stiffness matrix and ground-state vector by stitching local stiffness blocks.
 
@@ -140,13 +141,13 @@ def partial_stiff(
 def _partial_stiff_linear(
     seq: str,
     stiffgen_method: Callable,
-    stiffgen_args: Dict[str, Any],
+    stiffgen_args: dict[str, Any],
     block_size: int,
     overlap_size: int,
     tail_size: int,
     ndims: int = 6,
     verbose: bool = False,
-) -> Tuple[np.ndarray, BlockOverlapMatrix]:
+) -> tuple[np.ndarray, BlockOverlapMatrix]:
     Nseq = len(seq)
     N = Nseq - 1
     block_incr = block_size - overlap_size
@@ -214,13 +215,13 @@ def _partial_stiff_linear(
 def _partial_stiff_closed(
     seq: str,
     stiffgen_method: Callable,
-    stiffgen_args: Dict[str, Any],
+    stiffgen_args: dict[str, Any],
     block_size: int,
     overlap_size: int,
     tail_size: int,
     ndims: int = 6,
     verbose: bool = False,
-) -> Tuple[np.ndarray, BlockOverlapMatrix]:
+) -> tuple[np.ndarray, BlockOverlapMatrix]:
     # the main sequence includes the step connecting the last and first bp
     # the full sequence includes the overlap region on top of that
 
@@ -228,7 +229,8 @@ def _partial_stiff_closed(
     N_full = N_main + overlap_size
     
     if block_size > N_main - overlap_size:
-        block_size = int(np.ceil(N_main / 2))
+        block_size = N_main - 1
+        # int(np.ceil(N_main / 2))
 
     block_incr = block_size - overlap_size
     Nsegs = int(np.floor(N_full / block_incr))
@@ -296,10 +298,10 @@ def _extract_bps_stiff(
     id2: int,
     tail_size: int,
     stiffgen_method: Callable,
-    stiffgen_args: Dict[str, Any],
+    stiffgen_args: dict[str, Any],
     ndims: int = 6,
     periodic: bool = False,
-) -> Tuple[np.ndarray, np.ndarray, int, int]:
+) -> tuple[np.ndarray, np.ndarray, int, int]:
     sid1 = id1
     sid2 = id2 + 1
 

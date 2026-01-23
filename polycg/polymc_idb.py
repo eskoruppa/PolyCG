@@ -5,7 +5,7 @@ import time
 import argparse
 import numpy as np
 import scipy as sp
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any
 
 from .utils.bmat import BlockOverlapMatrix
 

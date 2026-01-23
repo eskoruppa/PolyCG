@@ -1,50 +1,21 @@
 from __future__ import annotations
 
 import sys, os
-import time
 import argparse
 import numpy as np
 import scipy as sp
-from typing import Any, Callable, Dict, List, Tuple
+from pathlib import Path
 
-# load models
-from .cgnaplus import cgnaplus_bps_params
-from .models.RBPStiff.read_params import GenStiffness
-# load partial stiffness generation
-from .partials import partial_stiff
-# load coarse graining methods
-from .cg import coarse_grain
 # load sequence from sequence file
 from .utils.load_seq import load_sequence
 # write sequence file
 from .utils.seq import write_seqfile
-# load so3 
-from .SO3 import so3
-# load visualization methods
-from .out.visualization import cgvisual
 # load gen_params
 from ._gen_params import gen_params
-
-# # load iopolymc output methods
-# from .IOPolyMC.iopolymc import write_xyz, gen_pdb
+# load visualization methods
+from .out.visualization import visualize_chimerax, visualize_pdb, visualize_xyz
 
     
-# ##################################################################################################################
-# ##################################################################################################################
-# ##################################################################################################################
-
-# def gen_config(params: np.ndarray):
-#     if len(params.shape) == 1:
-#         pms = params.reshape(len(params)//6,6)
-#     else:
-#         pms = params
-#     taus = np.zeros((len(pms)+1,4,4))
-#     taus[0] = np.eye(4)
-#     for i,pm in enumerate(pms):
-#         g = so3.se3_euler2rotmat(pm)
-#         taus[i+1] = taus[i] @ g
-#     return taus
-
 ##################################################################################################################
 ##################################################################################################################
 ##################################################################################################################
@@ -63,12 +34,10 @@ if __name__ == "__main__":
     parser.add_argument('-sid',     '--start_id',           type=int, default=0) 
     parser.add_argument('-eid',     '--end_id',             type=int, default=None) 
     parser.add_argument('-o',       '--output_basename',    type=str, default = None, required=False)
-    parser.add_argument('-nv',      '--no_visualization',   action='store_true') 
-    parser.add_argument('-bpst',   '--include_bps_triads', action='store_true') 
-    
-    # parser.add_argument('-xyz',     '--gen_xyz',            action='store_true') 
-    # parser.add_argument('-pdb',     '--gen_pdb',            action='store_true') 
-     
+    parser.add_argument('-xyz',     '--gen_xyz',      action='store_true')
+    parser.add_argument('-pdb',     '--gen_pdb',      action='store_true')
+    parser.add_argument('-vis',     '--visualize_cgrbp',    action='store_true')
+    parser.add_argument('-bpst',    '--include_bps_triads', action='store_true') 
     args = parser.parse_args()
     
     model           = args.model
@@ -90,7 +59,6 @@ if __name__ == "__main__":
         seq = load_sequence(seqfn)
             
     cgnap_setname = 'curves_plus'
-    
     params = gen_params(
         model, 
         seq,
@@ -105,43 +73,44 @@ if __name__ == "__main__":
         print_info=False,
     )
     
-    print(f"\nParameter shapes:")
-    print(f"  shape_params: {params.shape_params.shape}")
-    print(f"  stiffmat: {params.stiffmat.shape}")
-    if params.cg_shape_params is not None:
-        print(f"  cg_shape_params: {params.cg_shape_params.shape}")
-    if params.cg_stiffmat is not None:
-        print(f"  cg_stiffmat: {params.cg_stiffmat.shape}")
-    
-    sys.exit(0)
+    # print(f"\nParameter shapes:")
+    # print(f"  shape_params: {params.shape_params.shape}")
+    # print(f"  stiffmat: {params.stiffmat.shape}")
+    # if params.cg_shape_params is not None:
+    #     print(f"  cg_shape_params: {params.cg_shape_params.shape}")
+    # if params.cg_stiffmat is not None:
+    #     print(f"  cg_stiffmat: {params.cg_stiffmat.shape}")
     
     if args.output_basename is None:
-        if args.sequence_file is None:
-            raise ValueError(f'Either output filename or sequence filename have to be specified.')
-        base_fn = os.path.splitext(seqfn)[0]
+        base_fn = Path(seqfn)
     else:
-        base_fn = args.output_basename
-    cg_fn = base_fn + f'_cg{composite_size}'
-    fn_gs = cg_fn + '_gs.npy'
-    fn_stiff = cg_fn + '_stiff.npz'
+        base_fn = Path(args.output_basename)
     
-    print(f'writing stiffness to "{fn_stiff}"')
-    print(f'writing groundstate to "{fn_gs}"')
-    add = ''
     if composite_size > 1:
-        add = 'cg_'
-    sp.sparse.save_npz(fn_stiff,params[add+'stiff'])
-    np.save(fn_gs,params[add+'gs'])
+        params.save_cg_coeffs(base_fn.with_name(base_fn.stem + '_closed') if closed else base_fn)
+    else:
+        params.save_coeffs(base_fn.with_name(base_fn.stem + '_closed') if closed else base_fn)
     
     # write sequence file
-    seqfn = base_fn + '.seq'
-    write_seqfile(seqfn,seq,add_extension=True)
+    seqfn = base_fn.with_suffix('.seq')
+    write_seqfile(seqfn,params.sequence,add_extension=True)
     
-    # visualization
-    if not args.no_visualization:
-        visdir = base_fn
-        vis_seq = seq
+    # visualization cgrbp
+    if args.visualize_cgrbp:
+        vis_seq = params.sequence
         if closed:
             vis_seq += seq[0]
-        cgvisual(visdir,params['gs'],vis_seq,composite_size,start_id,bead_radius=composite_size*0.34*0.5,include_bps_triads=args.include_bps_triads)
-    
+        if composite_size > 1:
+            bead_radius = composite_size*0.34*0.5
+        else:
+            bead_radius = 0
+        visualize_chimerax(base_fn, vis_seq, composite_size, shape_params=params.shape_params, start_id=start_id, bead_radius=bead_radius,include_bps_triads=args.include_bps_triads) 
+        
+    if args.gen_pdb and not args.visualize_cgrbp:
+        vis_seq = params.sequence
+        if closed:
+            vis_seq += seq[0]
+        visualize_pdb(base_fn, vis_seq, shape_params=params.shape_params)
+        
+    if args.gen_xyz:
+        visualize_xyz(base_fn, composite_size, shape_params=params.shape_params, start_id=start_id)

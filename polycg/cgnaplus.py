@@ -6,7 +6,6 @@ from scipy import sparse
 from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix
 import sys
 import argparse
-from typing import List, Tuple, Callable, Any, Dict
 
 from .models.cgNA_plus.modules.cgDNAUtils import constructSeqParms
 
@@ -38,7 +37,7 @@ def cgnaplus_bps_params(
     parameter_set_name: str = 'curves_plus',
     remove_factor_five: bool = True,
     rotations_only: bool = False
-    ) -> Tuple[np.ndarray,np.ndarray]:
+    ) -> tuple[np.ndarray,np.ndarray]:
     
     if parameter_set_name == 'curves_plus':
         parameter_set_name = CURVES_PLUS_DATASET_NAME
@@ -80,7 +79,7 @@ def cgnaplus_bps_params(
      
     return gs, stiff
 
-def cgnaplus_name_assignment(seq: str, dof_names=["W", "x", "C", "y"]) -> List[str]:
+def cgnaplus_name_assignment(seq: str, dof_names=["W", "x", "C", "y"]) -> list[str]:
     """
     Generates the sequence of contained degrees of freedom for the specified sequence.
     The default names follow the convention introduced on the cgNA+ website
@@ -92,7 +91,7 @@ def cgnaplus_name_assignment(seq: str, dof_names=["W", "x", "C", "y"]) -> List[s
     N = len(seq)
     if N == 0:  
         return []
-    vars = list()
+    vars = []
     for i in range(1, N + 1):
         vars += [f"{dofn}{i}" for dofn in dof_names]
     return vars[1:-2]

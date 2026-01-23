@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
-
+from typing import Any
+from pathlib import Path
 import numpy as np
 import scipy as sp
 
@@ -30,7 +30,189 @@ _GEN_PARAMS_ACCEPTED_IDENTIFIERS = _GEN_PARAMS_OLSON_IDENTIFIERS + \
 _GEN_PARAMS_MAX_COMPOSITE_SIZE = 40
 
 
-def _build_cgnaplus_args(cgnap_setname: str) -> dict:
+
+@dataclass
+class DNAParameters:
+    """Container for DNA model parameters with full metadata."""
+    
+    # Core data - always present
+    sequence: str
+    model: str
+    shape_params: np.ndarray  # ground state
+    stiffmat: sp.sparse.spmatrix  # stiffness matrix
+    
+    # Topology
+    closed: bool = False
+    composite_size: int = 1
+    
+    # Coarse-grained data - optional
+    cg_shape_params: np.ndarray | None = None
+    cg_stiffmat: sp.sparse.spmatrix | None = None
+    
+    # Metadata for reconstruction/visualization
+    start_id: int = 0
+    end_id: int | None = None
+    disc_len: float = 0.34  # nm, for visualization
+    
+    # Model-specific parameters
+    metadata: dict = field(default_factory=dict)
+    
+    @property
+    def n_bps(self) -> int:
+        """Number of base pairs."""
+        return len(self.sequence)
+    
+    @property
+    def n_steps(self) -> int:
+        """Number of base-pair steps."""
+        return self.n_bps - (0 if self.closed else 1)
+    
+    @property
+    def is_coarse_grained(self) -> bool:
+        """Check if coarse-grained parameters are available."""
+        return self.composite_size > 1 and self.cg_shape_params is not None
+    
+    def __post_init__(self):
+        """Validate dataclass fields after initialization."""
+        # Validate shape_params dimensions
+        if self.shape_params.ndim != 2:
+            raise ValueError(
+                f"shape_params must be 2D array, got shape {self.shape_params.shape}"
+            )
+        
+        n_steps, ndims = self.shape_params.shape
+        if ndims != _GEN_PARAMS_NDIMS:
+            raise ValueError(
+                f"shape_params must have {_GEN_PARAMS_NDIMS} columns, got {ndims}"
+            )
+        
+        # Validate stiffmat dimensions match shape_params
+        expected_size = n_steps * _GEN_PARAMS_NDIMS
+        if self.stiffmat.shape != (expected_size, expected_size):
+            raise ValueError(
+                f"stiffmat shape {self.stiffmat.shape} incompatible with "
+                f"shape_params {self.shape_params.shape}. Expected ({expected_size}, {expected_size})"
+            )
+        
+        # Validate coarse-grained parameters if present
+        if self.cg_shape_params is not None:
+            if self.cg_shape_params.ndim != 2:
+                raise ValueError(
+                    f"cg_shape_params must be 2D array, got shape {self.cg_shape_params.shape}"
+                )
+            
+            cg_n_steps, cg_ndims = self.cg_shape_params.shape
+            if cg_ndims != _GEN_PARAMS_NDIMS:
+                raise ValueError(
+                    f"cg_shape_params must have {_GEN_PARAMS_NDIMS} columns, got {cg_ndims}"
+                )
+            
+            if self.cg_stiffmat is not None:
+                expected_cg_size = cg_n_steps * _GEN_PARAMS_NDIMS
+                if self.cg_stiffmat.shape != (expected_cg_size, expected_cg_size):
+                    raise ValueError(
+                        f"cg_stiffmat shape {self.cg_stiffmat.shape} incompatible with "
+                        f"cg_shape_params {self.cg_shape_params.shape}. "
+                        f"Expected ({expected_cg_size}, {expected_cg_size})"
+                    )
+    
+    def __repr__(self) -> str:
+        """Return detailed string representation for debugging."""
+        cg_info = ""
+        if self.is_coarse_grained:
+            cg_info = f", CG: {self.cg_shape_params.shape[0]} composites"
+        
+        topology = "closed" if self.closed else "open"
+        
+        return (
+            f"DNAParameters(model='{self.model}', "
+            f"seq_len={len(self.sequence)}, "
+            f"n_steps={self.n_steps}, "
+            f"topology={topology}, "
+            f"composite_size={self.composite_size}"
+            f"{cg_info})"
+        )
+    
+    def get_params(self, coarse_grained: bool = False) -> tuple[np.ndarray, sp.sparse.spmatrix]:
+        """
+        Get shape parameters and stiffness matrix.
+        
+        Parameters
+        ----------
+        coarse_grained : bool, default=False
+            If True, return coarse-grained parameters. If False, return base-level parameters.
+        
+        Returns
+        -------
+        shape_params : np.ndarray
+            Shape parameters array.
+        stiffmat : sp.sparse.spmatrix
+            Stiffness matrix.
+        
+        Raises
+        ------
+        ValueError
+            If coarse_grained=True but coarse-grained parameters are not available.
+        """
+        if coarse_grained:
+            if not self.is_coarse_grained:
+                raise ValueError(
+                    f"Coarse-grained parameters not available. "
+                    f"composite_size={self.composite_size}, "
+                    f"cg_shape_params={'available' if self.cg_shape_params is not None else 'None'}"
+                )
+            return self.cg_shape_params, self.cg_stiffmat
+        else:
+            return self.shape_params, self.stiffmat
+    
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for backward compatibility."""
+        result = {
+            'seq': self.sequence,
+            'closed': self.closed,
+            'shape_params': self.shape_params,
+            'stiffmat': self.stiffmat
+        }
+        if self.is_coarse_grained:
+            result['cg_shape_params'] = self.cg_shape_params
+            result['cg_stiffmat'] = self.cg_stiffmat
+        return result
+    
+    def save_cg_coeffs(self, base_fn: str | Path) -> None:
+        """Save shape parameters to a .npy file."""
+        base_fn = Path(base_fn)
+        cg_fn = base_fn.with_name(base_fn.stem + f'_cg{self.composite_size}')
+        fn_gs = cg_fn.with_name(cg_fn.stem + '_gs.npy')
+        fn_stiff = cg_fn.with_name(cg_fn.stem + '_stiff.npz')
+        
+        if self.cg_stiffmat is not None:
+            sp.sparse.save_npz(fn_stiff,self.cg_stiffmat)
+        if self.cg_shape_params is not None:
+            np.save(fn_gs,self.cg_shape_params)
+        else:
+            raise ValueError("No coarse-grained shape parameters to save.")
+    
+    def save_coeffs(self, base_fn: str | Path) -> None:
+        """Save shape parameters to a .npy file."""
+        base_fn = Path(base_fn)
+        fn_gs = base_fn.with_name(base_fn.stem + '_gs.npy')
+        fn_stiff = base_fn.with_name(base_fn.stem + '_stiff.npz')
+        
+        if self.stiffmat is not None:
+            sp.sparse.save_npz(fn_stiff,self.stiffmat)
+        if self.shape_params is not None:
+            np.save(fn_gs,self.shape_params)
+        else:
+            raise ValueError("No shape parameters to save.")
+
+
+
+    cg_shape_params: np.ndarray | None = None
+    cg_stiffmat: sp.sparse.spmatrix | None = None
+
+
+
+def _build_cgnaplus_args(cgnap_setname: str) -> dict[str, Any]:
     """
     Build cgNA+ stiffness generation arguments dictionary.
     
@@ -59,7 +241,7 @@ def _calculate_coarse_grain_params(
     overlap_size: int,
     tail_size: int,
     composite_size: int
-) -> Tuple[int, int, int]:
+) -> tuple[int, int, int]:
     """
     Calculate coarse-graining parameters for block-overlap assembly.
     
@@ -94,8 +276,8 @@ def _apply_sequence_range(
     stiff: sp.sparse.spmatrix,
     sequence: str,
     start_id: int,
-    end_id: Optional[int]
-) -> Tuple[np.ndarray, sp.sparse.spmatrix, str]:
+    end_id: int | None
+) -> tuple[np.ndarray, sp.sparse.spmatrix, str]:
     """
     Apply start_id and end_id range selection to parameters and sequence.
     
@@ -160,7 +342,7 @@ def _generate_local_model_params(
     model: str,
     sequence: str,
     closed: bool = False
-) -> Tuple[np.ndarray, sp.sparse.spmatrix]:
+) -> tuple[np.ndarray, sp.sparse.spmatrix]:
     """
     Generate parameters for local models (Olson or Lankas).
     
@@ -203,7 +385,7 @@ def _gen_params_open(
     sequence: str,
     composite_size: int,
     start_id: int,
-    end_id: Optional[int],
+    end_id: int | None,
     allow_partial: bool,
     block_size: int,
     overlap_size: int,
@@ -323,7 +505,7 @@ def _gen_params_closed(
     sequence: str,
     composite_size: int,
     start_id: int,
-    end_id: Optional[int],
+    end_id: int | None,
     allow_partial: bool,
     block_size: int,
     overlap_size: int,
@@ -542,154 +724,6 @@ def _gen_params_closed(
             start_id=start_id,
             end_id=end_id
         )
-
-
-@dataclass
-class DNAParameters:
-    """Container for DNA model parameters with full metadata."""
-    
-    # Core data - always present
-    sequence: str
-    model: str
-    shape_params: np.ndarray  # ground state
-    stiffmat: sp.sparse.spmatrix  # stiffness matrix
-    
-    # Topology
-    closed: bool = False
-    composite_size: int = 1
-    
-    # Coarse-grained data - optional
-    cg_shape_params: Optional[np.ndarray] = None
-    cg_stiffmat: Optional[sp.sparse.spmatrix] = None
-    
-    # Metadata for reconstruction/visualization
-    start_id: int = 0
-    end_id: Optional[int] = None
-    disc_len: float = 0.34  # nm, for visualization
-    
-    # Model-specific parameters
-    metadata: dict = field(default_factory=dict)
-    
-    @property
-    def n_bps(self) -> int:
-        """Number of base pairs."""
-        return len(self.sequence)
-    
-    @property
-    def n_steps(self) -> int:
-        """Number of base-pair steps."""
-        return self.n_bps - (0 if self.closed else 1)
-    
-    @property
-    def is_coarse_grained(self) -> bool:
-        """Check if coarse-grained parameters are available."""
-        return self.composite_size > 1 and self.cg_shape_params is not None
-    
-    def __post_init__(self):
-        """Validate dataclass fields after initialization."""
-        # Validate shape_params dimensions
-        if self.shape_params.ndim != 2:
-            raise ValueError(
-                f"shape_params must be 2D array, got shape {self.shape_params.shape}"
-            )
-        
-        n_steps, ndims = self.shape_params.shape
-        if ndims != _GEN_PARAMS_NDIMS:
-            raise ValueError(
-                f"shape_params must have {_GEN_PARAMS_NDIMS} columns, got {ndims}"
-            )
-        
-        # Validate stiffmat dimensions match shape_params
-        expected_size = n_steps * _GEN_PARAMS_NDIMS
-        if self.stiffmat.shape != (expected_size, expected_size):
-            raise ValueError(
-                f"stiffmat shape {self.stiffmat.shape} incompatible with "
-                f"shape_params {self.shape_params.shape}. Expected ({expected_size}, {expected_size})"
-            )
-        
-        # Validate coarse-grained parameters if present
-        if self.cg_shape_params is not None:
-            if self.cg_shape_params.ndim != 2:
-                raise ValueError(
-                    f"cg_shape_params must be 2D array, got shape {self.cg_shape_params.shape}"
-                )
-            
-            cg_n_steps, cg_ndims = self.cg_shape_params.shape
-            if cg_ndims != _GEN_PARAMS_NDIMS:
-                raise ValueError(
-                    f"cg_shape_params must have {_GEN_PARAMS_NDIMS} columns, got {cg_ndims}"
-                )
-            
-            if self.cg_stiffmat is not None:
-                expected_cg_size = cg_n_steps * _GEN_PARAMS_NDIMS
-                if self.cg_stiffmat.shape != (expected_cg_size, expected_cg_size):
-                    raise ValueError(
-                        f"cg_stiffmat shape {self.cg_stiffmat.shape} incompatible with "
-                        f"cg_shape_params {self.cg_shape_params.shape}. "
-                        f"Expected ({expected_cg_size}, {expected_cg_size})"
-                    )
-    
-    def __repr__(self) -> str:
-        """Return detailed string representation for debugging."""
-        cg_info = ""
-        if self.is_coarse_grained:
-            cg_info = f", CG: {self.cg_shape_params.shape[0]} composites"
-        
-        topology = "closed" if self.closed else "open"
-        
-        return (
-            f"DNAParameters(model='{self.model}', "
-            f"seq_len={len(self.sequence)}, "
-            f"n_steps={self.n_steps}, "
-            f"topology={topology}, "
-            f"composite_size={self.composite_size}"
-            f"{cg_info})"
-        )
-    
-    def get_params(self, coarse_grained: bool = False) -> Tuple[np.ndarray, sp.sparse.spmatrix]:
-        """
-        Get shape parameters and stiffness matrix.
-        
-        Parameters
-        ----------
-        coarse_grained : bool, default=False
-            If True, return coarse-grained parameters. If False, return base-level parameters.
-        
-        Returns
-        -------
-        shape_params : np.ndarray
-            Shape parameters array.
-        stiffmat : sp.sparse.spmatrix
-            Stiffness matrix.
-        
-        Raises
-        ------
-        ValueError
-            If coarse_grained=True but coarse-grained parameters are not available.
-        """
-        if coarse_grained:
-            if not self.is_coarse_grained:
-                raise ValueError(
-                    f"Coarse-grained parameters not available. "
-                    f"composite_size={self.composite_size}, "
-                    f"cg_shape_params={'available' if self.cg_shape_params is not None else 'None'}"
-                )
-            return self.cg_shape_params, self.cg_stiffmat
-        else:
-            return self.shape_params, self.stiffmat
-    
-    def to_dict(self) -> dict:
-        """Convert to dictionary for backward compatibility."""
-        result = {
-            'seq': self.sequence,
-            'closed': self.closed,
-            'shape_params': self.shape_params,
-            'stiffmat': self.stiffmat
-        }
-        if self.is_coarse_grained:
-            result['cg_shape_params'] = self.cg_shape_params
-            result['cg_stiffmat'] = self.cg_stiffmat
-        return result
 
 
 def gen_params(

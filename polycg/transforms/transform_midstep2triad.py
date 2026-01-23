@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Tuple, Callable, Any, Dict
 
 from ..SO3 import so3
 from ..pyConDec.pycondec import cond_jit
@@ -12,11 +11,33 @@ from ..pyConDec.pycondec import cond_jit
 ##########################################################################################################
 
 def midstep2triad(
-    vecs: np.ndarray, 
+    vecs: np.ndarray,  # shape (..., 6): Euler ground state vectors
     rotation_map: str = 'euler', 
     rotation_first: bool = True
-    ) -> np.ndarray:
+    ) -> np.ndarray:  # shape (..., 6): Transformed vectors
+    """Transform translations from midstep triad frame to standard triad frame.
     
+    The translations are defined in the rotated frame of the midstep triad. This method 
+    transforms these translations into the SE(3) translations in the frame of triad i. 
+    The rotational vectors of these two definitions are the same, so this method acts as 
+    the identity on the rotational component. For the translational component:
+    1) Applies the rotational displacement of half the rotation
+    2) Accounts for the radial displacement of the midstep triad
+    
+    Args:
+        vecs: Euler ground state vectors with rotation and translation components.
+              Can be a single 6-vector or array of shape (N, 6) or higher dimensions.
+        rotation_map: Rotation parametrization to use, either 'euler' or 'cayley'.
+        rotation_first: If True, first 3 coordinates are rotational degrees of freedom,
+                       otherwise last 3 are rotational.
+
+    Returns:
+        Transformed ground state vectors with same shape as input. Rotational components
+        unchanged, translational components transformed to triad frame.
+        
+    Raises:
+        ValueError: If vectors don't have 6 components in last dimension or invalid rotation_map.
+    """
     if vecs.shape[-1] != 6:
         raise ValueError(f"Expected set of 6-vectors. Instead received shape {vecs.shape}")
     
@@ -65,11 +86,33 @@ def midstep2triad(
 
 
 def triad2midstep(
-    vecs: np.ndarray, 
+    vecs: np.ndarray,  # shape (..., 6): Euler ground state vectors
     rotation_map: str = 'euler', 
     rotation_first: bool = True
-    ) -> np.ndarray:
+    ) -> np.ndarray:  # shape (..., 6): Transformed vectors
+    """Transform translations from standard triad frame to midstep triad frame.
     
+    The translations are defined in the frame of triad i. This method transforms these 
+    translations into the frame of the midstep triad. The rotational vectors of these two 
+    definitions are the same, so this method acts as the identity on the rotational component. 
+    For the translational component:
+    1) Applies the rotational displacement of half the rotation
+    2) Accounts for the radial displacement of the midstep triad
+    
+    Args:
+        vecs: Euler ground state vectors with rotation and translation components.
+              Can be a single 6-vector or array of shape (N, 6) or higher dimensions.
+        rotation_map: Rotation parametrization to use, either 'euler' or 'cayley'.
+        rotation_first: If True, first 3 coordinates are rotational degrees of freedom,
+                       otherwise last 3 are rotational.
+
+    Returns:
+        Transformed ground state vectors with same shape as input. Rotational components
+        unchanged, translational components transformed to midstep triad frame.
+        
+    Raises:
+        ValueError: If vectors don't have 6 components in last dimension or invalid rotation_map.
+    """
     if vecs.shape[-1] != 6:
         raise ValueError(f"Expected set of 6-vectors. Instead received shape {vecs.shape}")
     

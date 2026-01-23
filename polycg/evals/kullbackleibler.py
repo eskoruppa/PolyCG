@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix
-from scipy import sparse
-from typing import List, Tuple, Callable, Any, Dict
 
 def kl_divergence(
     mu1: np.ndarray, 

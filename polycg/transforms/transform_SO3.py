@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Tuple, Callable, Any, Dict
 
 from ..SO3 import so3
 from ..pyConDec.pycondec import cond_jit
@@ -12,14 +11,23 @@ from ..pyConDec.pycondec import cond_jit
 ##########################################################################################################
 
 
-def euler2rotmat_so3(eulers: np.ndarray) -> np.ndarray:
-    """Converts configuration of euler vectors into collection of rotation matrices
-
+def euler2rotmat_so3(
+    eulers: np.ndarray  # shape (..., N, 3): Euler angles (axis-angle)
+) -> np.ndarray:  # shape (..., N, 3, 3): rotation matrices
+    """
+    Convert SO(3) Euler vectors to 3x3 rotation matrices.
+    
+    Uses axis-angle (Euler) representation to generate rotation matrices.
+    Recursively handles higher-dimensional arrays.
+    
     Args:
-        eulers (np.ndarray): Collection of euler vectors (...,N,3)
-
+        eulers: Euler vectors (3-component rotation vectors).
+    
     Returns:
-        np.ndarray: collection of rotation matrices (...,N,3,3)
+        3x3 rotation matrices.
+    
+    Raises:
+        ValueError: If last dimension is not 3, or if 4-vectors provided (use SE(3) functions instead).
     """
     if eulers.shape[-1] != 3:
         if eulers.shape[-1] == 4:
@@ -35,14 +43,23 @@ def euler2rotmat_so3(eulers: np.ndarray) -> np.ndarray:
     return rotmats
 
 
-def rotmat2euler_so3(rotmats: np.ndarray) -> np.ndarray:
-    """Converts collection of rotation matrices into collection of euler vectors
-
+def rotmat2euler_so3(
+    rotmats: np.ndarray  # shape (..., N, 3, 3): rotation matrices
+) -> np.ndarray:  # shape (..., N, 3): Euler angles
+    """
+    Convert SO(3) rotation matrices to Euler vectors.
+    
+    Extracts axis-angle (Euler) representation from 3x3 rotation matrices.
+    Inverse operation of euler2rotmat_so3.
+    
     Args:
-        rotmats (np.ndarray): collection of rotation matrices (...,N,3,3)
-
+        rotmats: 3x3 rotation matrices.
+    
     Returns:
-        np.ndarray: Collection of euler vectrs (...,N,3)
+        Euler vectors (axis-angle representation).
+    
+    Raises:
+        ValueError: If matrices are not 3x3, or if 4x4 matrices provided (use SE(3) functions instead).
     """
     if rotmats.shape[-1] != 3:
         if rotmats.shape[-2:] == (4,4):
@@ -191,14 +208,23 @@ def rotmat2euler_so3(rotmats: np.ndarray) -> np.ndarray:
 ##########################################################################################################
 
 
-def cayley2rotmat(cayleys: np.ndarray) -> np.ndarray:
-    """Converts configuration of euler vectors into collection of rotation matrices
-
+def cayley2rotmat(
+    cayleys: np.ndarray  # shape (..., N, 3): Cayley vectors
+) -> np.ndarray:  # shape (..., N, 3, 3): rotation matrices
+    """
+    Convert Cayley vectors to 3x3 rotation matrices.
+    
+    Uses Cayley map (default cnDNA parametrization) to generate rotation matrices.
+    The Cayley map provides an alternative to Euler angles for rotation parametrization.
+    
     Args:
-        eulers (np.ndarray): Collection of euler vectors (...,N,3)
-
+        cayleys: Cayley vectors (3-component).
+    
     Returns:
-        np.ndarray: collection of rotation matrices (...,N,3,3)
+        3x3 rotation matrices.
+    
+    Raises:
+        ValueError: If last dimension is not 3.
     """
     if cayleys.shape[-1] != 3:
         raise ValueError(f"Expected set of 3-vectors. Instead received shape {cayleys.shape}")
@@ -213,14 +239,20 @@ def cayley2rotmat(cayleys: np.ndarray) -> np.ndarray:
     return rotmats
 
 
-def rotmat2cayley(rotmats: np.ndarray) -> np.ndarray:
-    """Converts collection of rotation matrices into collection of euler vectors
-
+def rotmat2cayley(
+    rotmats: np.ndarray  # shape (..., N, 3, 3): rotation matrices
+) -> np.ndarray:  # shape (..., N, 3): Cayley vectors
+    """
+    Convert rotation matrices to Cayley vectors.
+    
+    Extracts Cayley parametrization from 3x3 rotation matrices.
+    Inverse operation of cayley2rotmat.
+    
     Args:
-        rotmats (np.ndarray): collection of rotation matrices (...,N,3,3)
-
+        rotmats: 3x3 rotation matrices.
+    
     Returns:
-        np.ndarray: Collection of euler vectors (...,N,3)
+        Cayley vectors (3-component).
     """
     cayleys = np.zeros(rotmats.shape[:-1])
     if len(rotmats.shape) > 3:
@@ -236,17 +268,25 @@ def rotmat2cayley(rotmats: np.ndarray) -> np.ndarray:
 ##########################################################################################################
 
 
-def vec2rotmat_so3(vecs: np.ndarray, rotation_map: str = "euler") -> np.ndarray:
-    """Converts configuration of vectors into collection of rotation matrices
-
+def vec2rotmat_so3(
+    vecs: np.ndarray,  # shape (..., N, 3): rotation parameter vectors
+    rotation_map: str = "euler"
+) -> np.ndarray:  # shape (..., N, 3, 3): rotation matrices
+    """
+    Convert rotation vectors to matrices using specified parametrization.
+    
+    Flexible conversion function supporting different rotation parametrizations.
+    Dispatches to appropriate conversion based on rotation_map.
+    
     Args:
-        vecs (np.ndarray): Collection of rotational vectors (...,N,3)
-        rotation_map (str): selected map between rotation rotation coordinates and rotation matrix.
-                Options:    - cayley: default cnDNA map (Cayley map)
-                            - euler:  Axis angle representation.
-
+        vecs: 3-component rotation vectors.
+        rotation_map: Rotation parametrization - "euler" for Euler angles or "cayley" for Cayley map.
+    
     Returns:
-        np.ndarray: collection of rotation matrices (...,N,3,3)
+        3x3 rotation matrices.
+    
+    Raises:
+        ValueError: If rotation_map is not "euler" or "cayley".
     """
     if rotation_map == "euler":
         return euler2rotmat_so3(vecs)
@@ -256,17 +296,25 @@ def vec2rotmat_so3(vecs: np.ndarray, rotation_map: str = "euler") -> np.ndarray:
         raise ValueError(f'Unknown rotation_map "{rotation_map}"')
 
 
-def rotmats2vecs_so3(rotmats: np.ndarray, rotation_map: str = "euler") -> np.ndarray:
-    """Converts collection of rotation matrices into collection of vectors
-
+def rotmats2vecs_so3(
+    rotmats: np.ndarray,  # shape (..., N, 3, 3): rotation matrices
+    rotation_map: str = "euler"
+) -> np.ndarray:  # shape (..., N, 3): rotation parameter vectors
+    """
+    Convert rotation matrices to vectors using specified parametrization.
+    
+    Flexible conversion function supporting different rotation parametrizations.
+    Inverse of vec2rotmat_so3.
+    
     Args:
-        rotmats (np.ndarray): collection of rotation matrices (...,N,3,3)
-        rotation_map (str): selected map between rotation rotation coordinates and rotation matrix.
-                Options:    - cayley: default cnDNA map (Cayley map)
-                            - euler:  Axis angle representation.
-
+        rotmats: 3x3 rotation matrices.
+        rotation_map: Rotation parametrization - "euler" for Euler angles or "cayley" for Cayley map.
+    
     Returns:
-        np.ndarray: Collection of vectors (...,N,3)
+        3-component rotation vectors.
+    
+    Raises:
+        ValueError: If rotation_map is not "euler" or "cayley".
     """
     if rotation_map == "euler":
         return rotmat2euler_so3(rotmats)
@@ -281,15 +329,25 @@ def rotmats2vecs_so3(rotmats: np.ndarray, rotation_map: str = "euler") -> np.nda
 ##########################################################################################################
 
 
-def rotmat2triad(rotmats: np.ndarray, first_triad=None) -> np.ndarray:
-    """Converts collection of rotation matrices into collection of triads
-
+def rotmat2triad(
+    rotmats: np.ndarray,  # shape (..., N, 3, 3): rotation matrices
+    first_triad=None  # shape (3, 3) or None: initial triad orientation
+) -> np.ndarray:  # shape (..., N+1, 3, 3): triads (coordinate frames)
+    """
+    Convert rotation matrices to triads (coordinate frames).
+    
+    Accumulates rotations to build a chain of local coordinate frames.
+    Each triad represents the orientation of a reference frame in 3D space.
+    
     Args:
-        rotmats (np.ndarray): set of rotation matrices that constitute the local junctions in the chain of triads. (...,N,3,3)
-        first_triad (None or np.ndarray): rotation of first triad. Should be none or single triad. For now only supports identical rotation for all snapshots.
-
+        rotmats: Local rotation matrices connecting consecutive triads.
+        first_triad: Initial triad orientation (default: identity).
+    
     Returns:
-        np.ndarray: set of triads (...,N+1,3,3)
+        Chain of triads (N+1 triads for N rotations).
+    
+    Raises:
+        AssertionError: If first_triad is not a 3x3 matrix.
     """
     sh = list(rotmats.shape)
     sh[-3] += 1
@@ -312,14 +370,20 @@ def rotmat2triad(rotmats: np.ndarray, first_triad=None) -> np.ndarray:
     return triads
 
 
-def triad2rotmat(triads: np.ndarray) -> np.ndarray:
-    """Converts set of triads into set of rotation matrices
-
+def triad2rotmat(
+    triads: np.ndarray  # shape (..., N+1, 3, 3): triads (coordinate frames)
+) -> np.ndarray:  # shape (..., N, 3, 3): rotation matrices
+    """
+    Convert chain of triads to local rotation matrices.
+    
+    Inverse operation of rotmat2triad. Computes the rotation matrices
+    connecting consecutive triads in a chain.
+    
     Args:
-        triads (np.ndarray): set of triads (...,N+1,3,3)
-
+        triads: Chain of coordinate frames (N+1 triads).
+    
     Returns:
-        np.ndarray: set of rotation matrices (...,N,3,3)
+        Local rotation matrices (N rotations for N+1 triads).
     """
     sh = list(triads.shape)
     sh[-3] -= 1
@@ -339,15 +403,23 @@ def triad2rotmat(triads: np.ndarray) -> np.ndarray:
 ############### Generate positions from triads ###########################################################
 ##########################################################################################################
 
-def triad2position(triads: np.ndarray, disc_len=0.34) -> np.ndarray:
-    """generates a set of position vectors from a set of triads
-
+def triad2position(
+    triads: np.ndarray,  # shape (..., N, 3, 3): coordinate triads
+    disc_len: float = 0.34
+) -> np.ndarray:  # shape (..., N, 3): position vectors
+    """
+    Generate position vectors from coordinate triads.
+    
+    Computes positions by accumulating displacements along the local z-axis
+    (third column) of each triad. Default discretization length is 0.34 nm,
+    typical for DNA base pair spacing.
+    
     Args:
-        triads (np.ndarray): set of trads (...,N,3,3)
-        disc_len (float): discretization length
-
+        triads: Coordinate frames (triads) defining local orientations.
+        disc_len: Discretization length (spacing between positions) in nm.
+    
     Returns:
-        np.ndarray: set of position vectors (...,N,3)
+        Position vectors in 3D space.
     """
     pos = np.zeros(triads.shape[:-1])
     if len(triads.shape) > 3:

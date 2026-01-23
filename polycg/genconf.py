@@ -2,7 +2,7 @@ import numpy as np
 from .SO3 import so3
 from .transforms.transform_SE3 import euler2rotmat_se3
 
-def gen_config(params: np.ndarray, disc_len: float=0.34):
+def gen_config(params: np.ndarray, disc_len: float=0.34) -> np.ndarray:
     if len(params.shape) == 1:
         raise ValueError(f'params should be at least twodimensional')
         
