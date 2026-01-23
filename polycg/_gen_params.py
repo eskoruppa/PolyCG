@@ -158,6 +158,12 @@ def gen_params(
     if end_id is not None:
         if start_id > end_id:
             raise ValueError(f'Invalid id range start_id > end_id ({start_id} > {end_id})')
+        if end_id > len(seq) - 1: 
+            if closed:
+                raise ValueError(f'end_id ({end_id}) exceeding sequence bounds ({len(sequence)}). Setting this argument is not allowed for closed topologies.')
+            else:
+                raise ValueError(f'end_id ({end_id}) exceeding sequence bounds ({len(sequence)}).')
+
     
     if composite_size <= 1:
         print('RAISE EXCEPTION!')
@@ -239,14 +245,24 @@ def gen_params(
                     rotations_only=     _GEN_PARAMS_CGNAPLUS_ROT_ONLY
                     )
         
-        params = {
-            'seq' : sequence,
-            'closed' : closed,
-            'gs': gs,
-            'stiff' : stiff
-        }
-        
         if composite_size <= 1:
+            
+            if end_id is not None:
+                gs = gs[:end_id]
+                stiff = stiff[:end_id*_GEN_PARAMS_NDIMS,:end_id*_GEN_PARAMS_NDIMS]
+                sequence = sequence[:end_id+1]
+            if start_id is not None:
+                gs = gs[start_id:]
+                stiff = stiff[start_id*_GEN_PARAMS_NDIMS:,start_id*_GEN_PARAMS_NDIMS:]
+                sequence = sequence[start_id:]
+            
+            params = {
+                'seq' : sequence,
+                'closed' : False,
+                'gs': gs,
+                'stiff' : stiff
+            }
+            
             return params
         
         ##################################################################################################################
@@ -271,9 +287,24 @@ def gen_params(
             )
         
         if isinstance(cg_stiff, BlockOverlapMatrix):
-            cg_stiff = cg_stiff.to_sparse()   
-        params['cg_gs'] = cg_gs
-        params['cg_stiff'] = cg_stiff
+            cg_stiff = cg_stiff.to_sparse()
+        if end_id is not None:
+            gs = gs[:end_id]
+            stiff = stiff[:end_id*_GEN_PARAMS_NDIMS,:end_id*_GEN_PARAMS_NDIMS]
+            sequence = sequence[:end_id+1]
+        if start_id is not None:
+            gs = gs[start_id:]
+            stiff = stiff[start_id*_GEN_PARAMS_NDIMS:,start_id*_GEN_PARAMS_NDIMS:]
+            sequence = sequence[start_id:]
+        
+        params = {
+            'seq' : sequence,
+            'closed' : False,
+            'gs': gs,
+            'stiff' : stiff,
+            'cg_gs' : cg_gs,
+            'cg_stiff' : cg_stiff
+        }
         return params
     
     else:
@@ -494,12 +525,8 @@ if __name__ == '__main__':
     
     N = 100
     seq = ''.join(['ATCG'[np.random.randint(4)] for i in range(N)])
-    print(seq)
-    
     model = 'cgna+'
-    # model = 'MD'
     cg = 10
     closed = True
-    allow_crop = False
-    gen_params(model,seq,composite_size=cg,closed=closed,allow_crop=allow_crop)
+    gen_params(model,seq,composite_size=cg,closed=closed)
      
