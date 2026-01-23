@@ -1,70 +1,20 @@
 from __future__ import annotations
 
-import sys, os
 import numpy as np
-from typing import List, Tuple, Callable, Any, Dict
 
 from .SO3 import so3
-from .transforms.transform_SO3 import euler2rotmat_so3
-from .transforms.transform_marginals import send_to_back_permutation
 
-def nucleosome_free_energy(
-    groundstate: np.ndarray,
-    stiffmat: np.ndarray,
-    midstep_constraint_locations: List[int],
-    midstep_triads: np.ndarray
-) -> np.ndarray:
-    
-    # find composite transformation
-    transform, replaced_ids = midstep_composition_transformation(
-        groundstate,
-        midstep_constraint_locations
-    )
-    
-    # transform stiffness matrix
-    inv_transform = np.linalg.inv(transform)
-    stiffmat_transformed = inv_transform.T @ stiffmat @ inv_transform
-    
-    # find contraint excess values
-    excess_vals = midstep_excess_vals(
-        groundstate,
-        midstep_constraint_locations,
-        midstep_triads
-    )
-    C = excess_vals.flatten()
-    
-    # rearrange stiffness matrix
-    full_replaced_ids = list()
-    for i in range(len(replaced_ids)):
-        full_replaced_ids += [6*replaced_ids[i]+j for j in range(6)]
-    
-    P = send_to_back_permutation(len(stiffmat),full_replaced_ids)
-    stiffmat_rearranged = P @ stiffmat_transformed @ P.T
-
-    # select fluctuating, constraint and coupling part of matrix
-    N  = len(stiffmat)
-    NC = len(full_replaced_ids)
-    NF = N-NC
-    
-    MF = stiffmat_rearranged[:NF,:NF]
-    MC = stiffmat_rearranged[NF:,NF:]
-    MM = stiffmat_rearranged[NF:,:NF]
-    
-    MFi = np.linalg.inv(MF)
-    const_1 = 0.5 * C.T @ MC @ C
-    
-    MMTC = MM.T @ C
-    const_2 = -0.5 * MMTC.T @ MFi @ MMTC
-    
-    
-    
+raise ImportError(
+    "The midstep_composites module has been deprecated and removed from active use. "
+    "This module is no longer maintained. "
+    "If you require this functionality, please restore from git history or contact maintainers."
+)
 
 def midstep_excess_vals(
-    groundstate: np.ndarray,
-    midstep_constraint_locations: List[int],
-    midstep_triads: np.ndarray  
-):
-    
+    groundstate: np.ndarray,  # shape (N, 6): SE(3) parameters for N base-pair steps
+    midstep_constraint_locations: list[int],  # M+1 indices marking segment boundaries
+    midstep_triads: np.ndarray  # shape (M+1, 4, 4): SE(3) transformation matrices
+) -> np.ndarray:  # shape (M, 6): excess values for M segments
     num = len(midstep_constraint_locations)-1
     excess_vals = np.zeros((num,6))
     for i in range(num):
@@ -77,13 +27,11 @@ def midstep_excess_vals(
     return excess_vals
     
     
-
-
 def midstep_composition_excess(
-    groundstate: np.ndarray,
-    triad1: np.ndarray,
-    triad2: np.ndarray
-) -> np.ndarray:
+    groundstate: np.ndarray,  # shape (N, 6): SE(3) parameters
+    triad1: np.ndarray,  # shape (4, 4): first SE(3) transformation matrix
+    triad2: np.ndarray  # shape (4, 4): second SE(3) transformation matrix
+) -> np.ndarray:  # shape (6,): excess SE(3) coordinates
     
     g_ij = np.linalg.inv(triad1) @ triad2
     Smats = midstep_se3_groundstate(groundstate)
@@ -95,7 +43,9 @@ def midstep_composition_excess(
     return X
 
     
-def midstep_se3_groundstate(groundstate: np.ndarray):
+def midstep_se3_groundstate(
+    groundstate: np.ndarray  # shape (N, 6): SE(3) parameters
+) -> np.ndarray:  # shape (N, 4, 4): SE(3) transformation matrices
     Phi0s = groundstate[:,:3]
     N = len(groundstate)
     # assign static rotation matrices
@@ -119,11 +69,10 @@ def midstep_se3_groundstate(groundstate: np.ndarray):
     return Smats
 
 
-
 def midstep_composition_transformation(
-    groundstate: np.ndarray,
-    midstep_constraint_locations: List[int]
-) -> np.ndarray:
+    groundstate: np.ndarray,  # shape (N, 6): SE(3) parameters
+    midstep_constraint_locations: list[int]  # M+1 indices marking segment boundaries
+) -> tuple[np.ndarray, list[int]]:  # (transformation matrix shape (N*6, N*6), replaced indices)
     N = len(groundstate)
     mat = np.eye(N*6)
     replaced_ids = []
@@ -138,8 +87,8 @@ def midstep_composition_transformation(
 
 
 def midstep_composition_block(
-    groundstate: np.ndarray
-) -> np.ndarray:
+    groundstate: np.ndarray  # shape (N, 6): SE(3) parameters for segment
+) -> np.ndarray:  # shape (6, N*6): composition block matrix
     if len(groundstate) < 2:
         raise ValueError(f'midstep_composition_block: grounstate needs to contain at least two elements. {len(groundstate)} provided.')
     
@@ -215,7 +164,11 @@ def midstep_composition_block(
     return comp_block
 
 
-def midstep_Saccu(srots: np.ndarray,i,j) -> np.ndarray:
+def midstep_Saccu(
+    srots: np.ndarray,  # shape (N, 3, 3): static rotation matrices
+    i: int,  # start index
+    j: int  # end index
+) -> np.ndarray:  # shape (3, 3): accumulated rotation matrix
     saccu = np.eye(3)
     for k in range(i,j+1):
         saccu = saccu @ srots[k]
