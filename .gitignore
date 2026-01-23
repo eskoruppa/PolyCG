@@ -55,3 +55,4 @@
 # ignore test file
 *janseq_1kbp*
 *persistence_length.ipynb
+*dna_curvature*
