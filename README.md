@@ -148,31 +148,60 @@ The `gen_params` command generates the following files:
 
 ## Parameter Format Requirements
 
-PolyCG requires parameters in a specific format for coarse-graining:
+PolyCG requires parameters in a specific format for coarse-graining. Input parameters must satisfy two critical conditions:
 
-### Rotation Representation
-Rotations must be defined as **Euler vectors** (also called rotation vectors or exponential coordinates). An Euler vector **ω** ∈ ℝ³ represents a rotation through angle ‖**ω**‖ about axis **ω**/‖**ω**‖.
+1. **Rotations as Euler vectors**: Rotational coordinates must be represented as Euler vectors (rotation vectors), not Euler angles, Cayley vectors, quaternions, or rotation matrices.
 
-Do not use:
-- Euler angles (e.g., ZYZ, XYZ conventions)
-- Cayley vectors
-- Quaternions
-- Rotation matrices
+2. **SE(3) group split**: Ground state and fluctuations must be split at the SE(3) group level through multiplication (g = s·d), not through additive decomposition in coordinate space (X ≠ X₀ + Xₛ). This means the ground state transformation and dynamic fluctuations are composed as rigid body transformations before extracting tangent space coordinates.
 
-### SE(3) Group Split
-The configuration space must use a **multiplicative split** at the SE(3) level, not an additive split in coordinate space:
+For detailed mathematical definitions, see Section II of [Skoruppa & Schiessel (2025)](https://doi.org/10.1103/PhysRevResearch.7.013044).
 
-**Correct:** g = s · d  
-**Incorrect:** X = X₀ + Xₛ
+### Generating Parameters with Correct Format
 
-where:
-- **g** ∈ SE(3) is the total transformation
-- **s** ∈ SE(3) is the static (ground state) component  
-- **d** ∈ SE(3) is the dynamic (fluctuation) component
+The built-in parameter generation functions automatically provide parameters in the required format:
 
-This means the ground state and fluctuations are composed as group elements, not added as vectors. The tangent space coordinates are then extracted from the composed transformation.
+**cgNA+ parameters:**
+```python
+import polycg
 
-For detailed mathematical definitions and the precise logic, see Section II of [Skoruppa & Schiessel (2025)](https://doi.org/10.1103/PhysRevResearch.7.013044).
+seq = "ATCGATCG"
+shape, stiff = polycg.cgnaplus_bps_params(
+    seq,
+    translations_in_nm=True,      # Use nanometers for translations
+    euler_definition=True,         # Use Euler vectors (required)
+    group_split=True,              # Split at SE(3) level (required)
+    parameter_set_name='curves_plus',
+    remove_factor_five=True
+)
+```
+
+**MD parameters:**
+```python
+from polycg.models.RBPStiff import lankas_bps_params
+
+seq = "ATCGATCG"
+shape, stiff = lankas_bps_params(
+    seq,
+    translations_in_nm=True,
+    euler_definition=True,
+    group_split=True
+)
+```
+
+**Crystal parameters:**
+```python
+from polycg.models.RBPStiff import olson_bps_params
+
+seq = "ATCGATCG"
+shape, stiff = olson_bps_params(
+    seq,
+    translations_in_nm=True,
+    euler_definition=True,
+    group_split=True
+)
+```
+
+**Important:** Always set `euler_definition=True` and `group_split=True` when generating parameters for coarse-graining.
 
 ### Units
 - **Translations**: nanometers (nm) when `translations_in_nm=True`
