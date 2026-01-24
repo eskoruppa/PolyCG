@@ -90,6 +90,10 @@ cg_shape, cg_stiff = polycg.coarse_grain(
 - `shape`: Ground state configuration as (N, 6) array where N is the number of base pair steps
 - `stiff`: Stiffness matrix as (6N, 6N) array (can be sparse)
 - `composite_size`: Coarse-graining factor (k-fold reduction in resolution)
+- `start_id` (optional): Starting base pair index for selecting a subsequence. This may be used to shift the position of the first triad. Default: 0
+- `end_id` (optional): Ending base pair index for selecting a subsequence. If `None`, uses full sequence. Default: None
+- `allow_partial` (optional): If `True`, enables coarse-graining over overlapping blocks to speed up computation. Coarse-graining requires inverting the entire stiffness matrix, which becomes computationally challenging for large sequences. This method divides the matrix into more manageable sub-matrices with overlaps, ensuring results remain very close to the exact full coarse-graining (typically <0.1% difference per entry, often much smaller) as long as couplings in the original system do not span too far (calibrated for ~4th-order couplings). Default: True
+- `allow_crop` (optional): If `True`, automatically crops the sequence to fit `composite_size` evenly (removes trailing base pairs). If `False` and length is not divisible, raises an error. Default: True
 
 **Returns:**
 - `cg_shape`: Coarse-grained ground state as (N/k, 6) array
