@@ -198,7 +198,7 @@ shape, stiff = genstiff.gen_params(seq, use_group=True, sparse=True)
 ### Units
 - **Translations**: nanometers (nm) when `translations_in_nm=True`
 - **Rotations**: radians
-- **Stiffness**: energy units consistent with thermal energy kᵦT
+- **Stiffness**: Energies are expressed in units of $k_BT$, thus stiffness matrices have units of $k_BT/\text{nm}^2$ for translations, $k_BT/\text{rad}^2$ for rotations, $k_BT/(\text{rad}\cdot\text{nm})$ for cross-terms
 
 ## Limitations
 
