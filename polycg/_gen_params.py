@@ -375,7 +375,7 @@ def _generate_local_model_params(
     
     # Generate parameters
     genstiff = GenStiffness(method=method)
-    params = genstiff.gen_params(seq, use_group=False, sparse=True)
+    params = genstiff.gen_params(seq, use_group=True, sparse=True)
     
     return params['groundstate'], params['stiffness']
 

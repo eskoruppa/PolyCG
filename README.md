@@ -177,31 +177,23 @@ shape, stiff = polycg.cgnaplus_bps_params(
 
 **MD parameters:**
 ```python
-from polycg.models.RBPStiff import lankas_bps_params
+import polycg
 
 seq = "ATCGATCG"
-shape, stiff = lankas_bps_params(
-    seq,
-    translations_in_nm=True,
-    euler_definition=True,
-    group_split=True
-)
+genstiff = polycg.GenStiffness(method='md')
+shape, stiff = genstiff.gen_params(seq, use_group=True, sparse=True)
 ```
 
 **Crystal parameters:**
 ```python
-from polycg.models.RBPStiff import olson_bps_params
+import polycg
 
 seq = "ATCGATCG"
-shape, stiff = olson_bps_params(
-    seq,
-    translations_in_nm=True,
-    euler_definition=True,
-    group_split=True
-)
+genstiff = polycg.GenStiffness(method='crystall')
+shape, stiff = genstiff.gen_params(seq, use_group=True, sparse=True)
 ```
 
-**Important:** Always set `euler_definition=True` and `group_split=True` when generating parameters for coarse-graining.
+**Important:** The `use_group=True` flag ensures parameters are generated with the SE(3) group split required for coarse-graining.
 
 ### Units
 - **Translations**: nanometers (nm) when `translations_in_nm=True`
