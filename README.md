@@ -62,6 +62,10 @@ print(f"Ground state shape: {cg_shape.shape}")
 print(f"Stiffness matrix: {cg_stiff.shape}")
 ```
 
+**See also:**
+- [cg.ipynb](cg.ipynb) - Complete example demonstrating the coarse-graining workflow
+- [transforms.ipynb](transforms.ipynb) - Guide for transforming parameters (shape and stiffness) to the correct format required for coarse-graining
+
 ## Usage
 
 ### Python API: `coarse_grain()`
