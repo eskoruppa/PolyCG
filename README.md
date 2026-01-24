@@ -252,5 +252,5 @@ If you use PolyCG in your research, please cite:
 
 ## Contact
 
-- **Author**: Enrico Skoruppa
+- **Author**: [Enrico Skoruppa](https://github.com/eskoruppa)
 - **Repository**: [https://github.com/eskoruppa/PolyCG](https://github.com/eskoruppa/PolyCG)
