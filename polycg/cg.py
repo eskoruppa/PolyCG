@@ -351,64 +351,23 @@ def _cg_stiff_partial_linear(
 if __name__ == '__main__':
         
     from .cgnaplus import cgnaplus_bps_params
-    from .utils.load_seq import load_sequence
-    from .partials import partial_stiff
     
-    np.set_printoptions(linewidth=250, precision=3, suppress=True,edgeitems=12)
+    # from polycg import cgnaplus_bps_params
+    # from polycg import coarse_grain
     
-    fn_seq = 'Data/JanSeq/Lipfert_2kb'
-    fn_seq = 'Data/JanSeq/Lipfert_1kb'
-    # fn_seq = 'Data/JanSeq/Lipfert_7p9kb'
-    
-    base_fn = fn_seq
-    # base_fn = 'Data/JanSeq/Lipfert_2kb'
-    
-    fn_gs = base_fn + '_gs.npy'
-    fn_stiff = base_fn + '_stiff.npz'
-    
-    seq = load_sequence(fn_seq)
-    closed = False
-    
-    # seq = seq[:2001]
-    
+    nbp = 101
     composite_size = 10
-    start_id  = 0
-    end_id    = None
     
-    method = cgnaplus_bps_params
-    stiffgen_args = {
-        'translations_in_nm': True, 
-        'euler_definition': True, 
-        'group_split' : True,
-        'parameter_set_name' : 'curves_plus',
-        'remove_factor_five' : True,
-        }
+    seq = ''.join(['ATCG'[np.random.randint(0,4)] for _ in range(nbp)])
+    shape,stiff = cgnaplus_bps_params(
+        seq,
+        translations_in_nm = True, 
+        euler_definition = True, 
+        group_split = True,
+        parameter_set_name = 'curves_plus',
+        remove_factor_five = True
+    )
     
-    block_size = 120
-    overlap_size = 20
-    tail_size = 20
-    nbps = len(seq)-1
-    
-    if overlap_size > nbps:
-        overlap_size = nbps-1
-    if block_size > nbps:
-        block_size = nbps
-    
-    print('Generating partial stiffness matrix with')    
-    print(f'block_size:   {block_size}')
-    print(f'overlap_size: {overlap_size}')
-    print(f'tail_size:    {tail_size}')
+    cg_shape,cg_stiff = coarse_grain(shape,stiff,composite_size)
 
-    gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=closed,ndims=6)
-    
-    t1 = time.time()
-    cg_gs,cg_stiff = coarse_grain(gs,stiff,composite_size,start_id=start_id,end_id=end_id,allow_partial=True)
-    t2 = time.time()
-    print(f'dt = {(t2-t1)}')
-    
-    base_fn = base_fn + f'_cg{composite_size}_params'
-    fn_gs = base_fn + '_gs.npy'
-    fn_stiff = base_fn + '_stiff.npz'
-    sp.sparse.save_npz(fn_stiff,cg_stiff)
-    np.save(fn_gs,cg_gs)
-    
+    print(cg_shape.shape)

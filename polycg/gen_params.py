@@ -23,21 +23,49 @@ from .out.visualization import visualize_chimerax, visualize_pdb, visualize_xyz
 
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser(description="Generate ground state and stiffness matrix")
-    parser.add_argument('-m',       '--model',              type=str, default = 'cgnaplus', choices=['cgnaplus','lankas','olson'])
-    parser.add_argument('-cg',      '--composite_size',     type=int, default = 1)
-    parser.add_argument('-seqfn',   '--sequence_file',      type=str, default = None)
-    parser.add_argument('-seq',     '--sequence',           type=str, default = None)
-    parser.add_argument('-closed',  '--closed',             action='store_true') 
-    parser.add_argument('-nc',      '--no_crop',            action='store_true') 
-    parser.add_argument('-np',      '--no_partial',         action='store_true') 
-    parser.add_argument('-sid',     '--start_id',           type=int, default=0) 
-    parser.add_argument('-eid',     '--end_id',             type=int, default=None) 
-    parser.add_argument('-o',       '--output_basename',    type=str, default = None, required=False)
-    parser.add_argument('-xyz',     '--gen_xyz',      action='store_true')
-    parser.add_argument('-pdb',     '--gen_pdb',      action='store_true')
-    parser.add_argument('-vis',     '--visualize_cgrbp',    action='store_true')
-    parser.add_argument('-bpst',    '--include_bps_triads', action='store_true') 
+    parser = argparse.ArgumentParser(
+        description="Systematic coarse-graining of sequence-dependent structure and elasticity of double-stranded DNA. "
+                    "Generate ground state configuration and stiffness matrix for rigid base pair (RBP) models at any resolution. "
+                    "Supported base pair step stiffness libraries: cgNA+ (Sharma et al. 2023), MD (Lankas et al. 2003), and Crystal (Olson et al. 1998). "
+                    "Implementation of the method described in Skoruppa & Schiessel, Phys. Rev. Research 7, 013044 (2025).",
+        epilog="Example usage (using cgNA+ model by default):\n"
+               "  Basic generation:         python -m polycg.gen_params -seqfn Examples/1kbp\n"
+               "  Coarse-grained:           python -m polycg.gen_params -seqfn Examples/200bp -cg 5\n"
+               "  Closed (circular):        python -m polycg.gen_params -seqfn Examples/40bp -cg 10 -closed\n"
+               "  With visualization:       python -m polycg.gen_params -seqfn Examples/40bp -cg 5 -pdb -vis -bpst\n"
+               "  MD parameters:            python -m polycg.gen_params -seqfn Examples/1kbp -m md\n"
+               "  Crystal parameters:       python -m polycg.gen_params -seqfn Examples/1kbp -m crystall\n"
+               "  Direct sequence:          python -m polycg.gen_params -seq ATCGATCG -cg 1\n",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument('-m',       '--model',              type=str, default = 'cgnaplus', choices=['cgnaplus','md','crystall'],
+                        help='DNA model for parameter generation (default: cgnaplus)')
+    parser.add_argument('-cg',      '--composite_size',     type=int, default = 1,
+                        help='Number of base pairs per coarse-grained bead (default: 1 for all-atom)')
+    parser.add_argument('-seqfn',   '--sequence_file',      type=str, default = None,
+                        help='Path to DNA sequence file (.seq extension)')
+    parser.add_argument('-seq',     '--sequence',           type=str, default = None,
+                        help='DNA sequence as string (alternative to -seqfn)')
+    parser.add_argument('-closed',  '--closed',             action='store_true',
+                        help='Generate closed (circular) DNA configuration') 
+    parser.add_argument('-nc',      '--no_crop',            action='store_true',
+                        help='Disable automatic sequence cropping for boundary conditions') 
+    parser.add_argument('-np',      '--no_partial',         action='store_true',
+                        help='Disable partial block assembly for stiffness matrix') 
+    parser.add_argument('-sid',     '--start_id',           type=int, default=0,
+                        help='Starting base pair index for subsection generation (default: 0)') 
+    parser.add_argument('-eid',     '--end_id',             type=int, default=None,
+                        help='Ending base pair index for subsection generation (default: full sequence)') 
+    parser.add_argument('-o',       '--output_basename',    type=str, default = None, required=False,
+                        help='Base filename for output files (default: derived from sequence file)')
+    parser.add_argument('-xyz',     '--gen_xyz',            action='store_true',
+                        help='Generate XYZ coordinate file')
+    parser.add_argument('-pdb',     '--gen_pdb',            action='store_true',
+                        help='Generate PDB structure file')
+    parser.add_argument('-vis',     '--visualize_cgrbp',    action='store_true',
+                        help='Generate ChimeraX visualization script (.cxc)')
+    parser.add_argument('-bpst',    '--include_bps_triads', action='store_true',
+                        help='Include base pair step triads in visualization (requires -vis)') 
     args = parser.parse_args()
     
     model           = args.model
@@ -72,14 +100,6 @@ if __name__ == "__main__":
         verbose=True,
         print_info=False,
     )
-    
-    # print(f"\nParameter shapes:")
-    # print(f"  shape_params: {params.shape_params.shape}")
-    # print(f"  stiffmat: {params.stiffmat.shape}")
-    # if params.cg_shape_params is not None:
-    #     print(f"  cg_shape_params: {params.cg_shape_params.shape}")
-    # if params.cg_stiffmat is not None:
-    #     print(f"  cg_stiffmat: {params.cg_stiffmat.shape}")
     
     if args.output_basename is None:
         base_fn = Path(seqfn)

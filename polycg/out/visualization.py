@@ -138,7 +138,7 @@ def visualize_xyz(
         'types': ['C']*(len(cgtaus)),
         'pos'  : [cgtaus[:,:3,3]]
         }
-    iopmc.write_xyz(cgxyzfn,xyz)
+    iopmc.write_xyz(str(cgxyzfn),xyz)
     
 
 
@@ -348,6 +348,6 @@ def taus2pdb(
         fn = fn.with_suffix('.pdb')
     if len(taus) != len(seq):
         raise ValueError(f'Dimension of taus ({taus.shape}) and seq ({len(seq)}) do not match.')
-    iopmc.gen_pdb(fn, taus[:,:3,3], taus[:,:3,:3], sequence=seq, center=False)
+    iopmc.gen_pdb(str(fn), taus[:,:3,3], taus[:,:3,:3], sequence=seq, center=False)
     
     

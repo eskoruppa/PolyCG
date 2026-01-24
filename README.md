@@ -1,40 +1,233 @@
 # PolyCG
-Module to coarse-grain elastic parameters of DNA models 
 
-----
-----
-# Download <a name=download></a>
+Systematic coarse-graining of sequence-dependent structure and elasticity of double-stranded DNA.
 
-------
-Requires recursive cloning of submodules
-```console
+## Overview
+
+**PolyCG** is a Python package for coarse-graining rigid base pair (RBP) models of DNA to arbitrary resolutions while preserving sequence-dependent structural and elastic properties. This implementation is based on the analytical framework developed in:
+
+> E. Skoruppa and H. Schiessel. *Systematic coarse-graining of sequence-dependent structure and elasticity of double-stranded DNA*. [Phys. Rev. Research **7**, 013044 (2025)](https://doi.org/10.1103/PhysRevResearch.7.013044)
+
+Traditional coarse-grained DNA models, such as the wormlike chain, rely on homogeneous, sequence-independent approaches. However, DNA sequence significantly impacts structure and mechanics even at kilobase scales. PolyCG enables efficient sampling of large DNA molecules by systematically reducing the resolution of sequence-dependent base pair step models ([cgNA+](#ref-cgnaplus), [MD](#ref-lankas), [Crystal](#ref-olson)) while maintaining essential structural and dynamic features.
+
+The coarse-graining procedure retains every k-th base pair reference frame while computing effective ground states and stiffness matrices that faithfully reproduce the relative fluctuations of the original system. For rotational and translational degrees of freedom combined, excellent results are achieved up to approximately one helical repeat (~10 bp). When considering only rotational degrees of freedom (appropriate when local stretch modulus is not critical), faithful representation extends to several helical repeats.
+
+## Installation
+
+### Requirements
+- Python 3.9 or higher
+- NumPy
+- SciPy
+- Numba (for JIT compilation)
+
+### Install from Source
+
+Clone the repository with recursive submodules:
+
+```bash
 git clone --recurse-submodules -j4 git@github.com:eskoruppa/PolyCG.git
+cd PolyCG
+pip install -e .
 ```
 
+The recursive clone is necessary to include the cgNA+ parameter library and other dependencies.
 
-### <span style="color:red">Documentation coming soon</span>
+## Quick Start
 
-----
-----
-# Basic Functionality <a name=functionality></a>
+Generate coarse-grained parameters for a random 101 bp DNA sequence with 10 bp composite size:
 
----- 
-### Coarse-Grain 
+```python
+import numpy as np
+import polycg
 
+# Generate random sequence
+nbp = 101
+seq = ''.join(['ATCG'[np.random.randint(0,4)] for _ in range(nbp)])
+
+# Get base pair step parameters from cgNA+ model
+shape, stiff = polycg.cgnaplus_bps_params(
+    seq,
+    translations_in_nm=True, 
+    euler_definition=True, 
+    group_split=True,
+    parameter_set_name='curves_plus',
+    remove_factor_five=True
+)
+
+# Coarse-grain to 10 bp resolution
+composite_size = 10
+cg_shape, cg_stiff = polycg.coarse_grain(shape, stiff, composite_size)
+
+print(f"Original: {len(seq)-1} base pair steps")
+print(f"Coarse-grained: {len(cg_shape)} composite steps")
+print(f"Ground state shape: {cg_shape.shape}")
+print(f"Stiffness matrix: {cg_stiff.shape}")
+```
+
+## Usage
+
+### Python API: `coarse_grain()`
+
+The core coarse-graining function transforms base pair step parameters to lower resolution:
 
 ```python
 import polycg
 
-
-cg_gs, cg_stiff = polycg.coarse_grain(
-    gs,
-    stiff,
-    composite_size,
-    start_id=start_id,
-    end_id=end_id,
-    allow_partial=allow_partial,
-    block_ncomp=block_ncomp,
-    overlap_ncomp=overlap_ncomp,
-    tail_ncomp=tail_ncomp
+cg_shape, cg_stiff = polycg.coarse_grain(
+    shape,           # Ground state configuration (N×6 array)
+    stiff,           # Stiffness matrix (6N×6N array or sparse)
+    composite_size,  # Number of base pairs per coarse-grained bead
+    start_id=0,      # Starting base pair index (optional)
+    end_id=None,     # Ending base pair index (optional)
+    allow_partial=True,   # Allow partial block assembly (optional)
+    allow_crop=True       # Allow sequence cropping (optional)
 )
 ```
+
+**Parameters:**
+- `shape`: Ground state configuration as (N, 6) array where N is the number of base pair steps
+- `stiff`: Stiffness matrix as (6N, 6N) array (can be sparse)
+- `composite_size`: Coarse-graining factor (k-fold reduction in resolution)
+
+**Returns:**
+- `cg_shape`: Coarse-grained ground state as (N/k, 6) array
+- `cg_stiff`: Coarse-grained stiffness matrix as (6N/k, 6N/k) array
+
+### Command-Line Interface: `gen_params`
+
+Generate parameters directly from sequence files or strings:
+
+```bash
+# Basic generation (cgNA+ model by default)
+python -m polycg.gen_params -seqfn Examples/1kbp
+
+# Coarse-grained parameters (5 bp per bead)
+python -m polycg.gen_params -seqfn Examples/200bp -cg 5
+
+# Closed (circular) DNA
+python -m polycg.gen_params -seqfn Examples/40bp -cg 10 -closed
+
+# With ChimeraX visualization
+python -m polycg.gen_params -seqfn Examples/40bp -cg 5 -pdb -vis -bpst
+
+# Using MD parameters
+python -m polycg.gen_params -seqfn Examples/1kbp -m md
+
+# Using Crystal parameters
+python -m polycg.gen_params -seqfn Examples/1kbp -m crystall
+
+# Direct sequence input
+python -m polycg.gen_params -seq ATCGATCG -cg 1
+```
+
+View all options:
+```bash
+python -m polycg.gen_params --help
+```
+
+## Available Models
+
+PolyCG supports three base pair step stiffness libraries:
+
+- **cgNA+** <a name="ref-cgnaplus"></a> (default): Most comprehensive model based on all-atom simulations, including intra-base pair coordinates. Parameters from Sharma et al. (2023). Recommended for most applications.
+
+- **MD** <a name="ref-lankas"></a>: Parameters derived from molecular dynamics simulations by Lankaš et al. (2003). Provides sequence-dependent elastic properties at base pair step resolution.
+
+- **Crystal** <a name="ref-olson"></a>: Parameters based on crystallographic data from Olson et al. (1998). Represents average structural properties from X-ray structures.
+
+## Output Files
+
+The `gen_params` command generates the following files:
+
+- **`*_gs.npy`**: Ground state configuration (NumPy array, shape N×6)
+- **`*_stiff.npz`**: Stiffness matrix (SciPy sparse matrix format, shape 6N×6N)
+- **`*_cg{k}_gs.npy`**: Coarse-grained ground state (for composite_size k > 1)
+- **`*_cg{k}_stiff.npz`**: Coarse-grained stiffness matrix (for composite_size k > 1)
+- **`.seq`**: Sequence file (plain text)
+- **`.pdb`**: PDB structure file (if `-pdb` flag used)
+- **`.cxc`**: ChimeraX visualization script (if `-vis` flag used)
+- **`.xyz`**: XYZ coordinate file (if `-xyz` flag used)
+
+## Parameter Format Requirements
+
+PolyCG requires parameters in a specific format for coarse-graining:
+
+### Rotation Representation
+Rotations must be defined as **Euler vectors** (also called rotation vectors or exponential coordinates). An Euler vector **ω** ∈ ℝ³ represents a rotation through angle ‖**ω**‖ about axis **ω**/‖**ω**‖.
+
+Do not use:
+- Euler angles (e.g., ZYZ, XYZ conventions)
+- Cayley vectors
+- Quaternions
+- Rotation matrices
+
+### SE(3) Group Split
+The configuration space must use a **multiplicative split** at the SE(3) level, not an additive split in coordinate space:
+
+**Correct:** g = s · d  
+**Incorrect:** X = X₀ + Xₛ
+
+where:
+- **g** ∈ SE(3) is the total transformation
+- **s** ∈ SE(3) is the static (ground state) component  
+- **d** ∈ SE(3) is the dynamic (fluctuation) component
+
+This means the ground state and fluctuations are composed as group elements, not added as vectors. The tangent space coordinates are then extracted from the composed transformation.
+
+For detailed mathematical definitions and the precise logic, see Section II of [Skoruppa & Schiessel (2025)](https://doi.org/10.1103/PhysRevResearch.7.013044).
+
+### Units
+- **Translations**: nanometers (nm) when `translations_in_nm=True`
+- **Rotations**: radians
+- **Stiffness**: energy units consistent with thermal energy kᵦT
+
+## Limitations
+
+Based on benchmark results from the paper:
+
+- **Full 6D coarse-graining** (rotations + translations): Excellent accuracy up to ~10 bp (one helical repeat)
+- **Rotational-only coarse-graining**: Faithful representation up to several helical repeats (30+ bp)
+- **Translational fluctuations**: Less accurately reproduced than rotations, particularly for rise (extension) due to emergent asymmetry from bending fluctuations
+- **Variance accuracy**: Rotational degrees of freedom show <2% deviation for up to 40-fold coarse-graining
+
+For applications where local stretch modulus is critical, limit coarse-graining to ~10 bp. For phenomena dominated by bending and twisting (e.g., supercoiling, plectonemes), larger composite sizes are appropriate.
+
+## References
+
+<a name="ref-skoruppa"></a>
+1. **E. Skoruppa and H. Schiessel**, *Systematic coarse-graining of sequence-dependent structure and elasticity of double-stranded DNA*, Physical Review Research **7**, 013044 (2025). [DOI: 10.1103/PhysRevResearch.7.013044](https://doi.org/10.1103/PhysRevResearch.7.013044)
+
+<a name="ref-cgnaplus"></a>
+2. **R. Sharma, J. H. Maddocks, and others**, *cgDNA+: A sequence-dependent coarse-grain model of double-stranded DNA*, (2023).
+
+<a name="ref-lankas"></a>
+3. **F. Lankaš, J. Šponer, J. Langowski, and T. E. Cheatham III**, *DNA basepair step deformability inferred from molecular dynamics simulations*, Biophysical Journal **85**, 2872 (2003). [DOI: 10.1016/S0006-3495(03)74710-9](https://doi.org/10.1016/S0006-3495(03)74710-9)
+
+<a name="ref-olson"></a>
+4. **W. K. Olson, A. A. Gorin, X.-J. Lu, L. M. Hock, and V. B. Zhurkin**, *DNA sequence-dependent deformability deduced from protein-DNA crystal complexes*, Proceedings of the National Academy of Sciences **95**, 11163 (1998). [DOI: 10.1073/pnas.95.19.11163](https://doi.org/10.1073/pnas.95.19.11163)
+
+## License
+
+This project is licensed under the GNU General Public License v2.0. See [LICENSE](LICENSE) for details.
+
+## Citation
+
+If you use PolyCG in your research, please cite:
+
+```bibtex
+@article{skoruppa2025systematic,
+  title={Systematic coarse-graining of sequence-dependent structure and elasticity of double-stranded DNA},
+  author={Skoruppa, Enrico and Schiessel, Helmut},
+  journal={Physical Review Research},
+  volume={7},
+  pages={013044},
+  year={2025},
+  publisher={American Physical Society},
+  doi={10.1103/PhysRevResearch.7.013044}
+}
+```
+
+## Contact
+
+- **Author**: Enrico Skoruppa
+- **Repository**: [https://github.com/eskoruppa/PolyCG](https://github.com/eskoruppa/PolyCG)

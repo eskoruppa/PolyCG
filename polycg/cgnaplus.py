@@ -76,10 +76,12 @@ def cgnaplus_bps_params(
     if rotations_only:
         gs    = vector_rotmarginal(vecs2statevec(gs))
         stiff = matrix_rotmarginal(stiff)
-     
     return gs, stiff
 
-def cgnaplus_name_assignment(seq: str, dof_names=["W", "x", "C", "y"]) -> list[str]:
+def cgnaplus_name_assignment(
+    seq: str, 
+    dof_names: list[str] = ["W", "x", "C", "y"]
+    ) -> list[str]:
     """
     Generates the sequence of contained degrees of freedom for the specified sequence.
     The default names follow the convention introduced on the cgNA+ website
