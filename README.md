@@ -20,14 +20,12 @@ The coarse-graining procedure retains every k-th base pair reference frame while
 - SciPy
 - Numba (for JIT compilation)
 
-### Install from Source
+### Download
 
 Clone the repository with recursive submodules:
 
 ```bash
 git clone --recurse-submodules -j4 git@github.com:eskoruppa/PolyCG.git
-cd PolyCG
-pip install -e .
 ```
 
 The recursive clone is necessary to include the cgNA+ parameter library and other dependencies.
