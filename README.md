@@ -234,15 +234,19 @@ This project is licensed under the GNU General Public License v2.0. See [LICENSE
 If you use PolyCG in your research, please cite:
 
 ```bibtex
-@article{skoruppa2025systematic,
-  title={Systematic coarse-graining of sequence-dependent structure and elasticity of double-stranded DNA},
+@article{skor2025_cg,
+  title={Systematic coarse-graining of sequence-dependent structure and elasticity of double-stranded {DNA}},
   author={Skoruppa, Enrico and Schiessel, Helmut},
-  journal={Physical Review Research},
-  volume={7},
-  pages={013044},
-  year={2025},
+  journal={Phys. Rev. Res.},
+  volume = {7},
+  issue = {1},
+  pages = {013044},
+  numpages = {23},
+  year = {2025},
+  month = {Jan},
   publisher={American Physical Society},
-  doi={10.1103/PhysRevResearch.7.013044}
+  doi = {10.1103/PhysRevResearch.7.013044},
+  url = {https://link.aps.org/doi/10.1103/PhysRevResearch.7.013044}
 }
 ```
 
