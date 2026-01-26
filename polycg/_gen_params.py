@@ -314,7 +314,7 @@ def _apply_sequence_range(
     return gs, stiff, sequence
 
 
-def _log_partial_stiff_params(block_size: int, overlap_size: int, tail_size: int, print_info: bool = True, verbose: bool = True) -> None:
+def _log_partial_stiff_params(block_size: int, overlap_size: int, tail_size: int, print_info: bool = False, verbose: bool = True) -> None:
     """
     Log parameters for partial stiffness matrix generation.
     
@@ -511,7 +511,7 @@ def _gen_params_closed(
     overlap_size: int,
     tail_size: int,
     cgnap_setname: str,
-    print_info: bool = True,
+    print_info: bool = False,
     verbose: bool = False,
 ) -> DNAParameters:
     """
@@ -739,7 +739,7 @@ def gen_params(
     tail_size: int = 20,
     allow_crop: bool = False,
     cgnap_setname: str = 'curves_plus',
-    print_info: bool = True,
+    print_info: bool = False,
     verbose: bool = False,
     ) -> DNAParameters:
     """
