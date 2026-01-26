@@ -357,7 +357,6 @@ if __name__ == '__main__':
     
     nbp = 101
     composite_size = 10
-    
     seq = ''.join(['ATCG'[np.random.randint(0,4)] for _ in range(nbp)])
     shape,stiff = cgnaplus_bps_params(
         seq,
@@ -367,7 +366,4 @@ if __name__ == '__main__':
         parameter_set_name = 'curves_plus',
         remove_factor_five = True
     )
-    
     cg_shape,cg_stiff = coarse_grain(shape,stiff,composite_size)
-
-    print(cg_shape.shape)
