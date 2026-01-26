@@ -221,6 +221,7 @@ For applications where local stretch modulus is critical, limit coarse-graining 
 
 ## References
 
+
 <a name="ref-skoruppa"></a>
 1. **E. Skoruppa and H. Schiessel**, *Systematic coarse-graining of sequence-dependent structure and elasticity of double-stranded DNA*, Physical Review Research **7**, 013044 (2025). [DOI: 10.1103/PhysRevResearch.7.013044](https://doi.org/10.1103/PhysRevResearch.7.013044)
 
