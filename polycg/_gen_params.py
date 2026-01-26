@@ -392,7 +392,7 @@ def _gen_params_open(
     tail_size: int,
     allow_crop: bool,
     cgnap_setname: str,
-    print_info: bool = True,
+    print_info: bool = False,
     verbose: bool = False,
 ) -> DNAParameters:
     """
