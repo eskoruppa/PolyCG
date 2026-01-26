@@ -35,7 +35,8 @@ if __name__ == "__main__":
                "  With visualization:       python -m polycg.gen_params -seqfn Examples/40bp -cg 5 -pdb -vis -bpst\n"
                "  MD parameters:            python -m polycg.gen_params -seqfn Examples/1kbp -m md\n"
                "  Crystal parameters:       python -m polycg.gen_params -seqfn Examples/1kbp -m crystall\n"
-               "  Direct sequence:          python -m polycg.gen_params -seq ATCGATCG -cg 1\n",
+               "  Direct sequence:          python -m polycg.gen_params -seq ATCGATCG -o output_name\n"
+               "  Custom output:            python -m polycg.gen_params -seqfn Examples/40bp -o my_params\n",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument('-m',       '--model',              type=str, default = 'cgnaplus', choices=['cgnaplus','md','crystall'],
@@ -43,9 +44,9 @@ if __name__ == "__main__":
     parser.add_argument('-cg',      '--composite_size',     type=int, default = 1,
                         help='Number of base pairs per coarse-grained bead (default: 1 for all-atom)')
     parser.add_argument('-seqfn',   '--sequence_file',      type=str, default = None,
-                        help='Path to DNA sequence file (.seq extension)')
+                        help='Path to DNA sequence file (.seq extension). Used to derive output filename if -o not specified.')
     parser.add_argument('-seq',     '--sequence',           type=str, default = None,
-                        help='DNA sequence as string (alternative to -seqfn)')
+                        help='DNA sequence as string (alternative to -seqfn). Requires -o to specify output filename.')
     parser.add_argument('-closed',  '--closed',             action='store_true',
                         help='Generate closed (circular) DNA configuration') 
     parser.add_argument('-nc',      '--no_crop',            action='store_true',
@@ -57,7 +58,7 @@ if __name__ == "__main__":
     parser.add_argument('-eid',     '--end_id',             type=int, default=None,
                         help='Ending base pair index for subsection generation (default: full sequence)') 
     parser.add_argument('-o',       '--output_basename',    type=str, default = None, required=False,
-                        help='Base filename for output files (default: derived from sequence file)')
+                        help='Base filename for output files (required if using -seq, otherwise derived from -seqfn)')
     parser.add_argument('-xyz',     '--gen_xyz',            action='store_true',
                         help='Generate XYZ coordinate file')
     parser.add_argument('-pdb',     '--gen_pdb',            action='store_true',
@@ -81,10 +82,19 @@ if __name__ == "__main__":
     
     ##################################################################################################################
     
+    # Validate input: need either seqfn or (seq + output_basename)
     if seq is None:
         if seqfn is None:
-            raise ValueError(f'Requires either a sequence (-seq) or a sequence file (-seqfn)')
+            raise ValueError('Requires either a sequence (-seq) or a sequence file (-seqfn)')
         seq = load_sequence(seqfn)
+    else:
+        # Direct sequence provided: must have output_basename
+        if args.output_basename is None:
+            raise ValueError('When using -seq (direct sequence), you must specify -o (output basename)')
+    
+    # Check that we have a way to determine output filename
+    if args.output_basename is None and seqfn is None:
+        raise ValueError('Must specify either -seqfn (sequence file) or -o (output basename)')
             
     cgnap_setname = 'curves_plus'
     params = gen_params(

@@ -145,14 +145,20 @@ PolyCG supports three base pair step stiffness libraries:
 
 The `gen_params` command generates the following files:
 
+**Output filename convention:**
+- When using `-seqfn`: Output basename is derived from the sequence filename (e.g., `Examples/40bp` → `Examples/40bp_gs.npy`)
+- When using `-seq`: Must specify `-o` to set the output basename (e.g., `-o output_name` → `output_name_gs.npy`)
+- Optional: Use `-o` with `-seqfn` to override the default basename
+
+**Generated files:**
 - **`*_gs.npy`**: Ground state configuration (NumPy array, shape N×6)
 - **`*_stiff.npz`**: Stiffness matrix (SciPy sparse matrix format, shape 6N×6N)
 - **`*_cg{k}_gs.npy`**: Coarse-grained ground state (for composite_size k > 1)
 - **`*_cg{k}_stiff.npz`**: Coarse-grained stiffness matrix (for composite_size k > 1)
-- **`.seq`**: Sequence file (plain text)
-- **`.pdb`**: PDB structure file (if `-pdb` flag used)
-- **`.cxc`**: ChimeraX visualization script (if `-vis` flag used)
-- **`.xyz`**: XYZ coordinate file (if `-xyz` flag used)
+- **`*.seq`**: Sequence file (plain text)
+- **`*.pdb`**: PDB structure file (if `-pdb` flag used)
+- **`*.cxc`**: ChimeraX visualization script (if `-vis` flag used)
+- **`*.xyz`**: XYZ coordinate file (if `-xyz` flag used)
 
 ## Parameter Format Requirements
 
