@@ -131,17 +131,7 @@ View all options:
 python -m polycg.gen_params --help
 ```
 
-## Available Models
-
-PolyCG supports three base pair step stiffness libraries:
-
-- **cgNA+** <a name="ref-cgnaplus"></a> (default): Most comprehensive model based on all-atom simulations, including intra-base pair coordinates. Parameters from Sharma et al. (2023). Recommended for most applications.
-
-- **MD** <a name="ref-lankas"></a>: Parameters derived from molecular dynamics simulations by Lankaš et al. (2003). Provides sequence-dependent elastic properties at base pair step resolution.
-
-- **Crystal** <a name="ref-olson"></a>: Parameters based on crystallographic data from Olson et al. (1998). Represents average structural properties from X-ray structures.
-
-## Output Files
+### Output Files
 
 The `gen_params` command generates the following files:
 
@@ -159,6 +149,16 @@ The `gen_params` command generates the following files:
 - **`*.pdb`**: PDB structure file (if `-pdb` flag used)
 - **`*.cxc`**: ChimeraX visualization script (if `-vis` flag used)
 - **`*.xyz`**: XYZ coordinate file (if `-xyz` flag used)
+
+## Available Models
+
+PolyCG supports three base pair step stiffness libraries:
+
+- **cgNA+** <a name="ref-cgnaplus"></a> (default): Most comprehensive model based on all-atom simulations, including intra-base pair coordinates. Parameters from Sharma et al. (2023). Recommended for most applications.
+
+- **MD** <a name="ref-lankas"></a>: Parameters derived from molecular dynamics simulations by Lankaš et al. (2003). Provides sequence-dependent elastic properties at base pair step resolution.
+
+- **Crystal** <a name="ref-olson"></a>: Parameters based on crystallographic data from Olson et al. (1998). Represents average structural properties from X-ray structures.
 
 ## Parameter Format Requirements
 
