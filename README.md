@@ -221,18 +221,13 @@ For applications where local stretch modulus is critical, limit coarse-graining 
 
 ## References
 
+1. <a name="ref-skoruppa"></a>**E. Skoruppa and H. Schiessel**, *Systematic coarse-graining of sequence-dependent structure and elasticity of double-stranded DNA*, Physical Review Research **7**, 013044 (2025). [DOI: 10.1103/PhysRevResearch.7.013044](https://doi.org/10.1103/PhysRevResearch.7.013044)
 
-<a name="ref-skoruppa"></a>
-1. **E. Skoruppa and H. Schiessel**, *Systematic coarse-graining of sequence-dependent structure and elasticity of double-stranded DNA*, Physical Review Research **7**, 013044 (2025). [DOI: 10.1103/PhysRevResearch.7.013044](https://doi.org/10.1103/PhysRevResearch.7.013044)
+2. <a name="ref-cgnaplus"></a>**R. Sharma, J. H. Maddocks, and others**, *cgDNA+: A sequence-dependent coarse-grain model of double-stranded DNA*, (2023).
 
-<a name="ref-cgnaplus"></a>
-2. **R. Sharma, J. H. Maddocks, and others**, *cgDNA+: A sequence-dependent coarse-grain model of double-stranded DNA*, (2023).
+3. <a name="ref-lankas"></a>**F. Lankaš, J. Šponer, J. Langowski, and T. E. Cheatham III**, *DNA basepair step deformability inferred from molecular dynamics simulations*, Biophysical Journal **85**, 2872 (2003). [DOI: 10.1016/S0006-3495(03)74710-9](https://doi.org/10.1016/S0006-3495(03)74710-9)
 
-<a name="ref-lankas"></a>
-3. **F. Lankaš, J. Šponer, J. Langowski, and T. E. Cheatham III**, *DNA basepair step deformability inferred from molecular dynamics simulations*, Biophysical Journal **85**, 2872 (2003). [DOI: 10.1016/S0006-3495(03)74710-9](https://doi.org/10.1016/S0006-3495(03)74710-9)
-
-<a name="ref-olson"></a>
-4. **W. K. Olson, A. A. Gorin, X.-J. Lu, L. M. Hock, and V. B. Zhurkin**, *DNA sequence-dependent deformability deduced from protein-DNA crystal complexes*, Proceedings of the National Academy of Sciences **95**, 11163 (1998). [DOI: 10.1073/pnas.95.19.11163](https://doi.org/10.1073/pnas.95.19.11163)
+4. <a name="ref-olson"></a>**W. K. Olson, A. A. Gorin, X.-J. Lu, L. M. Hock, and V. B. Zhurkin**, *DNA sequence-dependent deformability deduced from protein-DNA crystal complexes*, Proceedings of the National Academy of Sciences **95**, 11163 (1998). [DOI: 10.1073/pnas.95.19.11163](https://doi.org/10.1073/pnas.95.19.11163)
 
 ## License
 
