@@ -26,6 +26,16 @@ def visualize_chimerax(
         raise ValueError("Either 'shape_params' or 'poses' must be provided")
     if shape_params is not None and poses is not None:
         raise ValueError("Cannot provide both 'shape_params' and 'poses', choose one")
+    if shape_params is not None:
+        if shape_params.ndim !=2:
+            raise ValueError(f"shape_params must be a 2D array, got shape {shape_params.shape}")
+        if shape_params.shape[1] != 6:
+            raise ValueError(f"shape_params must have shape (N,6), got shape {shape_params.shape}")
+    if poses is not None:
+        if poses.ndim !=3:
+            raise ValueError(f"poses must be a 3D array, got shape {poses.shape}")
+        if poses.shape[1:] != (4,4):
+            raise ValueError(f"poses must have shape (N,4,4), got shape {poses.shape}")
     if cg < 1:
         raise ValueError(f"cg must be >= 1, got {cg}")
     
