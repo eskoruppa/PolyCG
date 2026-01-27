@@ -125,11 +125,12 @@ if __name__ == "__main__":
     seqfn = base_fn.with_suffix('.seq')
     write_seqfile(seqfn,params.sequence,add_extension=True)
     
+    vis_seq = params.sequence
+    if closed:
+        vis_seq += vis_seq[0]
+    
     # visualization cgrbp
     if args.visualize_cgrbp:
-        vis_seq = params.sequence
-        if closed:
-            vis_seq += seq[0]
         if composite_size > 1:
             bead_radius = composite_size*0.34*0.5
         else:
@@ -137,9 +138,6 @@ if __name__ == "__main__":
         visualize_chimerax(base_fn, vis_seq, composite_size, shape_params=params.shape_params, start_id=start_id, bead_radius=bead_radius,include_bps_triads=args.include_bps_triads) 
         
     if args.gen_pdb and not args.visualize_cgrbp:
-        vis_seq = params.sequence
-        if closed:
-            vis_seq += seq[0]
         visualize_pdb(base_fn, vis_seq, shape_params=params.shape_params)
         
     if args.gen_xyz:

@@ -15,17 +15,17 @@ def visualize_chimerax(
     cg: int,
     *,
     shape_params: np.ndarray | None = None,
-    taus: np.ndarray | None = None,
+    poses: np.ndarray | None = None,
     start_id: int = 0,
     bead_radius: float | None = None,
     disc_len: float = 0.34,
     include_bps_triads: bool = False
 ) -> None:
     # Validate exactly one is provided
-    if shape_params is None and taus is None:
-        raise ValueError("Either 'shape_params' or 'taus' must be provided")
-    if shape_params is not None and taus is not None:
-        raise ValueError("Cannot provide both 'shape_params' and 'taus', choose one")
+    if shape_params is None and poses is None:
+        raise ValueError("Either 'shape_params' or 'poses' must be provided")
+    if shape_params is not None and poses is not None:
+        raise ValueError("Cannot provide both 'shape_params' and 'poses', choose one")
     if cg < 1:
         raise ValueError(f"cg must be >= 1, got {cg}")
     
@@ -39,29 +39,29 @@ def visualize_chimerax(
     if not outdir.exists():
         os.makedirs(outdir)
         
-    if taus is None:
-        taus = gen_config(shape_params,disc_len=disc_len)
+    if poses is None:
+        poses = gen_config(shape_params,disc_len=disc_len)
             
     # generate pdb file
     pdbfn = base_fn.with_suffix('.pdb')
-    taus2pdb(pdbfn, taus, seq)
+    poses2pdb(pdbfn, poses, seq)
     
     # create bild file for triads
     bildfn = base_fn.with_name(base_fn.name + '_triads.bild')
-    cgtaus = taus[start_id::cg]
-    _triads2bild(bildfn, cgtaus, alpha=1., scale=1, nm2aa=True, decimals=2)
+    cgposes = poses[start_id::cg]
+    _triads2bild(bildfn, cgposes, alpha=1., scale=1, nm2aa=True, decimals=2)
     
     # create base pair step triad bild file
     bps_triads_bildfn = None
     if include_bps_triads and cg > 1:
         bps_triads_bildfn = base_fn.with_name(base_fn.name + '_bps_triads.bild')
-        _triads2bild(bps_triads_bildfn, taus, alpha=1., scale=1, nm2aa=True, decimals=2)
+        _triads2bild(bps_triads_bildfn, poses, alpha=1., scale=1, nm2aa=True, decimals=2)
         
     # create chimera cxc file
     cxcfn = base_fn.with_suffix('.cxc')
     if bead_radius > 0:
-        spheres = np.zeros((len(cgtaus),4))
-        spheres[:,:3] = cgtaus[:,:3,3]
+        spheres = np.zeros((len(cgposes),4))
+        spheres[:,:3] = cgposes[:,:3,3]
         spheres[:,3] = bead_radius
     else:
        spheres = None
@@ -73,14 +73,14 @@ def visualize_pdb(
     seq: str,
     *,
     shape_params: np.ndarray | None = None,
-    taus: np.ndarray | None = None,
+    poses: np.ndarray | None = None,
     disc_len: float = 0.34,
 ) -> None:
     # Validate exactly one is provided
-    if shape_params is None and taus is None:
-        raise ValueError("Either 'shape_params' or 'taus' must be provided")
-    if shape_params is not None and taus is not None:
-        raise ValueError("Cannot provide both 'shape_params' and 'taus', choose one")
+    if shape_params is None and poses is None:
+        raise ValueError("Either 'shape_params' or 'poses' must be provided")
+    if shape_params is not None and poses is not None:
+        raise ValueError("Cannot provide both 'shape_params' and 'poses', choose one")
     
     # create relative path
     base_fn = Path(base_fn)
@@ -92,12 +92,12 @@ def visualize_pdb(
     if not outdir.exists():
         os.makedirs(outdir)
         
-    if taus is None:
-        taus = gen_config(shape_params,disc_len=disc_len)
+    if poses is None:
+        poses = gen_config(shape_params,disc_len=disc_len)
             
     # generate pdb file
     pdbfn = base_fn.with_suffix('.pdb')
-    taus2pdb(pdbfn, taus, seq)
+    poses2pdb(pdbfn, poses, seq)
     
     
 def visualize_xyz(
@@ -105,15 +105,15 @@ def visualize_xyz(
     cg: int,
     *,
     shape_params: np.ndarray | None = None,
-    taus: np.ndarray | None = None,
+    poses: np.ndarray | None = None,
     start_id: int = 0,
     disc_len: float = 0.34,
 ) -> None:
     # Validate exactly one is provided
-    if shape_params is None and taus is None:
-        raise ValueError("Either 'shape_params' or 'taus' must be provided")
-    if shape_params is not None and taus is not None:
-        raise ValueError("Cannot provide both 'shape_params' and 'taus', choose one")
+    if shape_params is None and poses is None:
+        raise ValueError("Either 'shape_params' or 'poses' must be provided")
+    if shape_params is not None and poses is not None:
+        raise ValueError("Cannot provide both 'shape_params' and 'poses', choose one")
     if cg < 1:
         raise ValueError(f"cg must be >= 1, got {cg}")
     
@@ -127,16 +127,16 @@ def visualize_xyz(
     if not outdir.exists():
         os.makedirs(outdir)
         
-    if taus is None:
-        taus = gen_config(shape_params,disc_len=disc_len)
+    if poses is None:
+        poses = gen_config(shape_params,disc_len=disc_len)
     
-    cgtaus = taus[start_id::cg]
+    cgposes = poses[start_id::cg]
     
     # create 
     cgxyzfn = base_fn.with_name(base_fn.name + '_cg.xyz')
     xyz = {
-        'types': ['C']*(len(cgtaus)),
-        'pos'  : [cgtaus[:,:3,3]]
+        'types': ['C']*(len(cgposes)),
+        'pos'  : [cgposes[:,:3,3]]
         }
     iopmc.write_xyz(str(cgxyzfn),xyz)
     
@@ -173,28 +173,28 @@ def cgvisual(
         os.makedirs(outdir)
         
     # calculate triads
-    taus = gen_config(shape_params,disc_len=disc_len)
+    poses = gen_config(shape_params,disc_len=disc_len)
             
     # generate pdb file
     pdbfn = base_fn.with_suffix('.pdb')
-    taus2pdb(pdbfn, taus, seq)
+    poses2pdb(pdbfn, poses, seq)
     
     # create bild file for triads
     bildfn = base_fn.with_name(base_fn.name + '_triads.bild')
-    cgtaus = taus[start_id::cg]
-    _triads2bild(bildfn, cgtaus, alpha=1., scale=1, nm2aa=True, decimals=2)
+    cgposes = poses[start_id::cg]
+    _triads2bild(bildfn, cgposes, alpha=1., scale=1, nm2aa=True, decimals=2)
     
     # create base pair step triad bild file
     bps_triads_bildfn = None
     if include_bps_triads and cg > 1:
         bps_triads_bildfn = base_fn.with_name(base_fn.name + '_bps_triads.bild')
-        _triads2bild(bps_triads_bildfn, taus, alpha=1., scale=1, nm2aa=True, decimals=2)
+        _triads2bild(bps_triads_bildfn, poses, alpha=1., scale=1, nm2aa=True, decimals=2)
         
     # create chimera cxc file
     cxcfn = base_fn.with_suffix('.cxc')
     if bead_radius > 0:
-        spheres = np.zeros((len(cgtaus),4))
-        spheres[:,:3] = cgtaus[:,:3,3]
+        spheres = np.zeros((len(cgposes),4))
+        spheres[:,:3] = cgposes[:,:3,3]
         spheres[:,3] = bead_radius
     else:
        spheres = None
@@ -202,8 +202,8 @@ def cgvisual(
     
     cgxyzfn = base_fn.with_name(base_fn.name + '_cg.xyz')
     xyz = {
-        'types': ['C']*(len(cgtaus)),
-        'pos'  : [cgtaus[:,:3,3]]
+        'types': ['C']*(len(cgposes)),
+        'pos'  : [cgposes[:,:3,3]]
         }
     iopmc.write_xyz(cgxyzfn,xyz)
 
@@ -280,7 +280,7 @@ def _chimeracxc(
               
 def _triads2bild(
     fn: Path | str,
-    taus: np.ndarray,
+    poses: np.ndarray,
     alpha: float = 1.,
     ucolor: str = 'default',
     vcolor: str = 'default',
@@ -304,7 +304,7 @@ def _triads2bild(
     if fn.suffix.lower() != '.bild':
         fn = fn.with_suffix('.bild')
         
-    dist = np.mean(np.linalg.norm(taus[1:,:3,3]-taus[:-1,:3,3],axis=1))
+    dist = np.mean(np.linalg.norm(poses[1:,:3,3]-poses[:-1,:3,3],axis=1))
     size = dist * 0.66 * scale
     nm2aafac = 1
     if nm2aa:
@@ -324,7 +324,7 @@ def _triads2bild(
     with open(fn,'w') as f:
         if alpha < 1.0:
             f.write(f'.transparency {1-alpha}\n')
-        for i,tau in enumerate(taus):
+        for i,tau in enumerate(poses):
             tau = tau[:3]
             f.write(f'# triad {i+1}\n')
             f.write(f'.color {_color2str(ucolor)}\n')
@@ -336,18 +336,18 @@ def _triads2bild(
     return fn
     
 def params2pdb(fn: Path | str, params: np.ndarray, seq: str) -> None:
-    taus2pdb(fn,gen_config(params),seq)
+    poses2pdb(fn,gen_config(params),seq)
     
-def taus2pdb(
+def poses2pdb(
     fn: Path | str, 
-    taus: np.ndarray, 
+    poses: np.ndarray, 
     seq: str
     ) -> None:
     fn = Path(fn)
     if fn.suffix.lower() != '.pdb':
         fn = fn.with_suffix('.pdb')
-    if len(taus) != len(seq):
-        raise ValueError(f'Dimension of taus ({taus.shape}) and seq ({len(seq)}) do not match.')
-    iopmc.gen_pdb(str(fn), taus[:,:3,3], taus[:,:3,:3], sequence=seq, center=False)
+    if len(poses) != len(seq):
+        raise ValueError(f'Dimension of poses ({poses.shape}) and seq ({len(seq)}) do not match.')
+    iopmc.gen_pdb(str(fn), poses[:,:3,3], poses[:,:3,:3], sequence=seq, center=False)
     
     
