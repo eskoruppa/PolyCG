@@ -34,19 +34,19 @@ if __name__ == "__main__":
                "  Closed (circular):        python -m polycg.gen_params -seqfn Examples/40bp -cg 10 -closed\n"
                "  With visualization:       python -m polycg.gen_params -seqfn Examples/40bp -cg 5 -pdb -vis -bpst\n"
                "  MD parameters:            python -m polycg.gen_params -seqfn Examples/1kbp -m md\n"
-               "  Crystal parameters:       python -m polycg.gen_params -seqfn Examples/1kbp -m crystall\n"
+               "  Crystal parameters:       python -m polycg.gen_params -seqfn Examples/1kbp -m crystal\n"
                "  Direct sequence:          python -m polycg.gen_params -seq ATCGATCG -o output_name\n"
                "  Custom output:            python -m polycg.gen_params -seqfn Examples/40bp -o my_params\n",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument('-m',       '--model',              type=str, default = 'cgnaplus', choices=['cgnaplus','md','crystall'],
-                        help='DNA model for parameter generation (default: cgnaplus)')
-    parser.add_argument('-cg',      '--composite_size',     type=int, default = 1,
-                        help='Number of base pairs per coarse-grained bead (default: 1 for all-atom)')
     parser.add_argument('-seqfn',   '--sequence_file',      type=str, default = None,
                         help='Path to DNA sequence file (.seq extension). Used to derive output filename if -o not specified.')
     parser.add_argument('-seq',     '--sequence',           type=str, default = None,
                         help='DNA sequence as string (alternative to -seqfn). Requires -o to specify output filename.')
+    parser.add_argument('-m',       '--model',              type=str, default = 'cgnaplus', choices=['cgnaplus','md','crystal'],
+                        help='DNA model for parameter generation (default: cgnaplus)')
+    parser.add_argument('-cg',      '--composite_size',     type=int, default = 1,
+                        help='Number of base pairs per coarse-grained bead (default: 1 for all-atom)')
     parser.add_argument('-closed',  '--closed',             action='store_true',
                         help='Generate closed (circular) DNA configuration') 
     parser.add_argument('-nc',      '--no_crop',            action='store_true',

@@ -120,7 +120,7 @@ python -m polycg.gen_params -seqfn Examples/40bp -cg 5 -pdb -vis -bpst
 python -m polycg.gen_params -seqfn Examples/1kbp -m md
 
 # Using Crystal parameters
-python -m polycg.gen_params -seqfn Examples/1kbp -m crystall
+python -m polycg.gen_params -seqfn Examples/1kbp -m crystal
 
 # Direct sequence input
 python -m polycg.gen_params -seq ATCGATCG -cg 1
@@ -203,7 +203,7 @@ shape, stiff = genstiff.gen_params(seq, use_group=True, sparse=True)
 import polycg
 
 seq = "ATCGATCG"
-genstiff = polycg.GenStiffness(method='crystall')
+genstiff = polycg.GenStiffness(method='crystal')
 shape, stiff = genstiff.gen_params(seq, use_group=True, sparse=True)
 ```
 
