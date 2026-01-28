@@ -27,7 +27,7 @@ def dnacurv(
         np.ndarray
     """
     prms = gen_params(model,seq,composite_size=1)
-    taus = gen_config(prms['gs'])
+    taus = gen_config(prms.shape_params)
     N = len(seq)-1
     M = N - span + 1
     vals = np.zeros(M)

@@ -16,7 +16,7 @@ def visualize_chimerax(
     *,
     shape_params: np.ndarray | None = None,
     poses: np.ndarray | None = None,
-    start_id: int = 0,
+    first_cg: int = 0,
     bead_radius: float | None = None,
     disc_len: float = 0.34,
     include_bps_triads: bool = False
@@ -58,7 +58,7 @@ def visualize_chimerax(
     
     # create bild file for triads
     bildfn = base_fn.with_name(base_fn.name + '_triads.bild')
-    cgposes = poses[start_id::cg]
+    cgposes = poses[first_cg::cg]
     _triads2bild(bildfn, cgposes, alpha=1., scale=1, nm2aa=True, decimals=2)
     
     # create base pair step triad bild file
@@ -116,7 +116,7 @@ def visualize_xyz(
     *,
     shape_params: np.ndarray | None = None,
     poses: np.ndarray | None = None,
-    start_id: int = 0,
+    first_cg: int = 0,
     disc_len: float = 0.34,
 ) -> None:
     # Validate exactly one is provided
@@ -140,7 +140,7 @@ def visualize_xyz(
     if poses is None:
         poses = gen_config(shape_params,disc_len=disc_len)
     
-    cgposes = poses[start_id::cg]
+    cgposes = poses[first_cg::cg]
     
     # create 
     cgxyzfn = base_fn.with_name(base_fn.name + '_cg.xyz')
