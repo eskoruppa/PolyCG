@@ -135,10 +135,10 @@ if __name__ == "__main__":
             bead_radius = composite_size*0.34*0.5
         else:
             bead_radius = 0
-        visualize_chimerax(base_fn, vis_seq, composite_size, shape_params=params.shape_params, start_id=start_id, bead_radius=bead_radius,include_bps_triads=args.include_bps_triads) 
+        visualize_chimerax(base_fn, vis_seq, composite_size, shape_params=params.shape_params, first_cg=start_id, bead_radius=bead_radius,include_bps_triads=args.include_bps_triads) 
         
     if args.gen_pdb and not args.visualize_cgrbp:
         visualize_pdb(base_fn, vis_seq, shape_params=params.shape_params)
         
     if args.gen_xyz:
-        visualize_xyz(base_fn, composite_size, shape_params=params.shape_params, start_id=start_id)
+        visualize_xyz(base_fn, composite_size, shape_params=params.shape_params, first_cg=start_id)
