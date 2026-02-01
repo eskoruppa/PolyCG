@@ -25,7 +25,7 @@ The coarse-graining procedure retains every k-th base pair reference frame while
 Clone the repository with recursive submodules:
 
 ```bash
-git clone --recurse-submodules -j4 git@github.com:eskoruppa/PolyCG.git
+git clone --recurse-submodules -j4 https://github.com/eskoruppa/PolyCG.git
 ```
 
 The recursive clone is necessary to include the cgNA+ parameter library and other dependencies.
