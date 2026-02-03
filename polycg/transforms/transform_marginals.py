@@ -4,7 +4,6 @@ import numpy as np
 import scipy as sp
 from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix
 from scipy import sparse
-from ..SO3 import so3
 from warnings import warn
 
 
