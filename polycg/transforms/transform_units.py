@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import scipy as sp
 
 ##########################################################################################################
 ##########################################################################################################
@@ -8,7 +9,72 @@ import numpy as np
 ##########################################################################################################
 ##########################################################################################################
 
-def conversion(array: np.ndarray, factor: float, block_dim: int = 6, dofs: list[int] = None):  # shape (N,) or (N, N)
+def conversion(
+    array: np.ndarray | sp.sparse.spmatrix, 
+    factor: float, 
+    block_dim: int = 6, 
+    dofs: list[int] = None
+    ) -> np.ndarray | sp.sparse.spmatrix:  # shape (N,) or (N, N)
+    """Apply unit conversion factor to specific degrees of freedom in vectors or matrices.
+    
+    Converts units by multiplying specified degrees of freedom by a conversion factor.
+    For vectors, multiplies selected elements. For matrices, multiplies both rows and
+    columns corresponding to selected degrees of freedom.
+    
+    Args:
+        array: Vector or matrix to convert. Shape (N,) for vectors or (N, N) for matrices.
+               Can be np.ndarray or scipy sparse matrix.
+        factor: Conversion factor to multiply selected degrees of freedom.
+        block_dim: Size of blocks in the array (e.g., 6 for SE(3) vectors).
+        dofs: List of degree of freedom indices to convert. If None, converts all elements.
+              Indices are taken modulo block_dim.
+
+    Returns:
+        Converted array with same shape as input and same type (np.ndarray or sparse matrix).
+        
+    Raises:
+        ValueError: If array has more than 2 dimensions.
+    """
+
+    if sp.sparse.issparse(array):
+        # if everything is to be converted
+        if dofs is None:
+            return array.multiply(factor)
+        
+        # reduce to be converted degrees of freedom
+        dofs = sorted(list(set([dof % block_dim for dof in dofs])))
+        indices = np.concatenate([np.arange(dof, array.shape[0], block_dim) for dof in dofs])
+        
+        # Create diagonal scaling matrix to scale rows and columns efficiently
+        scale_diag = np.ones(array.shape[0])
+        scale_diag[indices] = factor
+        scale_matrix = sp.sparse.diags(scale_diag)
+        
+        # Scale rows (left multiplication) and columns (right multiplication)
+        return scale_matrix @ array @ scale_matrix
+    else:
+        # Original numpy implementation
+        dims = len(array.shape)
+        # check if valid shape
+        if dims > 2:
+            raise ValueError(f'Conversion only supports vectors and matrices. Encountered array of shape {array.shape}.')
+        # if everything is to be converted
+        if dofs is None:
+            return array * factor
+        
+        # reduce to be converted degrees of freedom    
+        carray = np.copy(array)
+        dofs = sorted(list(set([dof % block_dim for dof in dofs])))
+        indices = np.concatenate([np.arange(dof, array.shape[0], block_dim) for dof in dofs])
+        
+        carray[indices] *= factor
+        if dims == 2:
+            carray[:, indices] *= factor
+        return carray
+
+
+
+def conversion_old(array: np.ndarray, factor: float, block_dim: int = 6, dofs: list[int] = None):  # shape (N,) or (N, N)
     """Apply unit conversion factor to specific degrees of freedom in vectors or matrices.
     
     Converts units by multiplying specified degrees of freedom by a conversion factor.
