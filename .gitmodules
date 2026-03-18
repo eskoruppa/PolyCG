@@ -1,22 +1,19 @@
 [submodule "polycg/cgNA_plus"]
 	path = polycg/Models/cgNA_plus
-	url = git@github.com:eskoruppa/cgNA_plus
+	url = https://github.com/eskoruppa/cgNA_plus
 [submodule "polycg/IOPolyMC"]
 	path = polycg/IOPolyMC
-	url = git@github.com:eskoruppa/IOPolyMC
+	url = https://github.com/eskoruppa/IOPolyMC
 [submodule "polycg/SO3"]
 	path = polycg/SO3
-	url = git@github.com:eskoruppa/SO3
+	url = https://github.com/eskoruppa/SO3
 [submodule "polycg/pyConDec"]
 	path = polycg/pyConDec
-	url = git@github.com:eskoruppa/pyConDec
-[submodule "polycg/Models/RBPStiff"]
-	path = polycg/Models/RBPStiff
-	url = git@github.com:eskoruppa/RBPStiff
+	url = https://github.com/eskoruppa/pyConDec
 [submodule "polycg/models/RBPStiff"]
 	path = polycg/models/RBPStiff
-	url = git@github.com:eskoruppa/RBPStiff
+	url = https://github.com/eskoruppa/RBPStiff
 [submodule "polycg/models/cgNA_plus"]
 	path = polycg/models/cgNA_plus
-	url = git@github.com:eskoruppa/cgNA_plus.git
+	url = https://github.com/eskoruppa/cgNA_plus.git
 	branch = main

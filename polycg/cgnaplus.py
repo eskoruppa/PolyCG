@@ -65,7 +65,7 @@ def cgnaplus_bps_params(
         # cayley2euler_stiffmat requires gs in cayley definition
         stiff = cayley2euler_stiffmat(gs,stiff,rotation_first=True)
         gs = cayley2euler(gs)
-    
+
     if group_split:
         if not euler_definition:
             raise ValueError('The group_split option requires euler_definition to be set!')
@@ -162,6 +162,9 @@ if __name__ == '__main__':
     print(f'overlap_size: {overlap_size}')
     print(f'tail_size:    {tail_size}')
 
+    import time
+    t1 = time.time()
+
     if len(seq) - 1 <= overlap_size:
         gs, stiffar = cgnaplus_bps_params(seq, **stiffgen_args)
         stiff = sp.sparse.lil_matrix(stiffar.shape)
@@ -169,6 +172,9 @@ if __name__ == '__main__':
         stiff = stiff.tocsc()
     else:
         gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=args.closed,ndims=6)
+
+    t2 = time.time()
+    print(f'Finished stiffness matrix generation in {t2-t1:.4f} seconds ({(t2-t1)/60:.5f} minutes).')
 
     basefn = args.sequence_filename + '_params'
     if args.closed:
