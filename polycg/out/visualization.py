@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
+from turtle import color
 import warnings
 import numpy as np
 from ..IOPolyMC import iopolymc as iopmc
@@ -19,7 +20,11 @@ def visualize_chimerax(
     first_cg: int = 0,
     bead_radius: float | None = None,
     disc_len: float = 0.34,
-    include_bps_triads: bool = False
+    include_bps_triads: bool = False,
+    use_cif: bool = False,
+    additional_beads: dict[str, np.ndarray | float | str] | None = None,
+    quality: float = 3.0,
+    spheres_as_bild: bool = True
 ) -> None:
     # Validate exactly one is provided
     if shape_params is None and poses is None:
@@ -51,10 +56,27 @@ def visualize_chimerax(
         
     if poses is None:
         poses = gen_config(shape_params,disc_len=disc_len)
-            
-    # generate pdb file
-    pdbfn = base_fn.with_suffix('.pdb')
-    poses2pdb(pdbfn, poses, seq)
+
+    if len(poses) > 500:
+        use_cif = True
+
+    if use_cif:
+        if len(poses) > 2000:
+            nchuncks = int(np.ceil(len(poses)/2000))
+            pdbfn = []
+            for i in range(nchuncks):
+                chunk_poses = poses[i*2000:(i+1)*2000]
+                chunk_fn = base_fn.with_name(base_fn.name + f'_part{i+1}.cif')
+                poses2cif(chunk_fn, chunk_poses, seq[i*2000:(i+1)*2000])
+                pdbfn.append(chunk_fn)
+        else:
+            # generate cif file
+            pdbfn = base_fn.with_suffix('.cif')
+            poses2cif(pdbfn, poses, seq)  
+    else:
+        # generate pdb file
+        pdbfn = base_fn.with_suffix('.pdb')
+        poses2pdb(pdbfn, poses, seq)
     
     # create bild file for triads
     bildfn = base_fn.with_name(base_fn.name + '_triads.bild')
@@ -75,7 +97,7 @@ def visualize_chimerax(
         spheres[:,3] = bead_radius
     else:
        spheres = None
-    _chimeracxc(cxcfn, pdbfn, triadfn=bildfn, spheres=spheres, nm2aa= True, decimals=2, additional_triadfn=bps_triads_bildfn)
+    _chimeracxc(cxcfn, pdbfn, triadfn=bildfn, spheres=spheres, nm2aa=True, decimals=2, additional_triadfn=bps_triads_bildfn, additional_beads=additional_beads, quality=quality, spheres_as_bild=spheres_as_bild)
     
     
 def visualize_pdb(
@@ -220,21 +242,25 @@ def cgvisual(
    
 def _chimeracxc(
     fn: Path | str,
-    pdbfn: Path | str,
+    pdbfns: Path | str | list[Path | str],
     triadfn: Path | str | None = None,
     spheres: np.ndarray | None = None,
     nm2aa: bool = True,
     decimals: int = 2,
-    additional_triadfn: Path | str | None = None
+    additional_triadfn: Path | str | None = None,
+    additional_beads: dict[str, np.ndarray | float | str] | None = None,
+    quality: float | None = 3.0,
+    spheres_as_bild: bool = True
 ):
     
     fn = Path(fn)
     if fn.suffix.lower() != '.cxc':
         fn = fn.with_suffix('.cxc')
     
-    pdbfn = Path(pdbfn)
+    if isinstance(pdbfns, (str, Path)):
+        pdbfns = [pdbfns]
+
     modelnum = 0
-    sphereids = []
     with open(fn,'w') as f:
         
         f.write(f'# scene settings\n')
@@ -243,21 +269,27 @@ def _chimeracxc(
         # simple lighting
         f.write(f'lighting simple\n')    
         # set silhouettes
-        f.write(f'graphics silhouettes true color black width 1.5\n') 
-        # open pdb twice
-        f.write(f'\n# load pdb\n')
-        f.write(f'open {pdbfn.name}\n') 
-        f.write(f'open {pdbfn.name}\n')
-        modelnum += 2 
-        # dna visuals
-        f.write(f'\n# set DNA visuals\n')
-        f.write(f'style ball\n')
-        f.write(f'nucleotides atoms\n')
-        f.write(f'color white target a\n')
-        f.write(f'color light gray target c\n')
-        f.write(f'cartoon style nucleic xsect oval width 3.0 thick 1.2\n')
-        f.write(f'hide #2 atoms\n')
-        f.write(f'hide #1 cartoons\n')
+        f.write(f'graphics silhouettes true color black width 1.5\n')
+        # sphere/surface tessellation quality
+        if quality is not None:
+            f.write(f'graphics quality {quality}\n')
+
+        for pdbfn in pdbfns:
+            # open pdb twice
+            f.write(f'\n# load pdb\n')
+            f.write(f'open {pdbfn.name}\n') 
+            f.write(f'open {pdbfn.name}\n')
+            # dna visuals
+            f.write(f'\n# set DNA visuals\n')
+            f.write(f'style ball\n')
+            f.write(f'nucleotides atoms\n')
+            f.write(f'color white target a\n')
+            f.write(f'color light gray target c\n')
+            f.write(f'cartoon style nucleic xsect oval width 3.0 thick 1.2\n')
+            modelnum += 1 
+            f.write(f'hide #{modelnum} atoms\n')
+            modelnum += 1 
+            f.write(f'hide #{modelnum} cartoons\n')
         
         # open triads
         if triadfn is not None:
@@ -274,20 +306,96 @@ def _chimeracxc(
             f.write(f'open {additional_triadfn.name}\n') 
         
         if spheres is not None:
-            nm2aafac = 1
-            if nm2aa:
-                nm2aafac = 10
-            def pt2str(pt):
-                return ','.join([f'{np.round(p*nm2aafac,decimals=decimals)}' for p in pt[:3]])
-
-            f.write(f'\n# Genergate spheres\n')
-            for shid,sphere in enumerate(spheres):
+            if spheres_as_bild:
+                spheres_bildfn = fn.with_name(fn.stem + '_spheres.bild')
+                _spheres2bild(spheres_bildfn, spheres, nm2aa=nm2aa, decimals=decimals)
                 modelnum += 1
-                sphereids.append(modelnum)
-                f.write(f'shape sphere radius {np.round(sphere[3]*nm2aafac,decimals=decimals)} center {pt2str(sphere)} name sph{shid+1}\n')
-                f.write(f'transparency #{modelnum} 75\n')
+                f.write(f'\n# Load spheres BILD\n')
+                f.write(f'open {spheres_bildfn.name}\n')
+            else:
+                nm2aafac = 10 if nm2aa else 1
+                def pt2str(pt):
+                    return ','.join([f'{np.round(p*nm2aafac,decimals=decimals)}' for p in pt[:3]])
+                f.write(f'\n# Generate spheres\n')
+                for shid, sphere in enumerate(spheres):
+                    modelnum += 1
+                    f.write(f'shape sphere radius {np.round(sphere[3]*nm2aafac,decimals=decimals)} center {pt2str(sphere)} name sph{shid+1}\n')
+                    f.write(f'transparency #{modelnum} 75\n')
 
+        if additional_beads is not None:
+            beads_bildfn = fn.with_name(fn.stem + '_beads.bild')
+            _beads2bild(beads_bildfn, additional_beads, nm2aa=nm2aa, decimals=decimals)
+            modelnum += 1
+            f.write(f'\n# Load additional beads BILD\n')
+            f.write(f'open {beads_bildfn.name}\n')
               
+def _spheres2bild(
+    fn: Path | str,
+    spheres: np.ndarray,
+    color: str | list = 'white',
+    transparency: float = 0.75,
+    nm2aa: bool = True,
+    decimals: int = 2
+) -> Path:
+    fn = Path(fn)
+    if fn.suffix.lower() != '.bild':
+        fn = fn.with_suffix('.bild')
+
+    nm2aafac = 10 if nm2aa else 1
+
+    def pt2str(pt):
+        return ' '.join([f'{np.round(p * nm2aafac, decimals=decimals)}' for p in pt[:3]])
+
+    with open(fn, 'w') as f:
+        f.write(f'.transparency {transparency}\n')
+        if isinstance(color, str):
+            f.write(f'.color {color}\n')
+        elif hasattr(color, '__iter__') and len(color) == 3:
+            f.write(f'.color {" ".join([str(c) for c in color])}\n')
+        for i, sphere in enumerate(spheres):
+            f.write(f'# sphere {i + 1}\n')
+            f.write(f'.sphere {pt2str(sphere)} {np.round(sphere[3] * nm2aafac, decimals=decimals)}\n')
+
+    return fn
+
+
+def _beads2bild(
+    fn: Path | str,
+    beads: list[dict],
+    nm2aa: bool = True,
+    decimals: int = 2
+) -> Path:
+    fn = Path(fn)
+    if fn.suffix.lower() != '.bild':
+        fn = fn.with_suffix('.bild')
+
+    nm2aafac = 10 if nm2aa else 1
+
+    def pt2str(pt):
+        return ' '.join([f'{np.round(p * nm2aafac, decimals=decimals)}' for p in pt[:3]])
+
+    def color2str(color):
+        if isinstance(color, str):
+            return color
+        if hasattr(color, '__iter__') and len(color) == 3:
+            return ' '.join([f'{c}' for c in color])
+        raise ValueError(f'Invalid color {color}')
+
+    with open(fn, 'w') as f:
+        for i, bead in enumerate(beads):
+            pos = bead['position']
+            bead_radius = bead.get('radius', 1.0)
+            bead_color = bead.get('color', 'white')
+            alpha = bead.get('alpha', 1.0)
+            transparency = 1 - alpha
+            f.write(f'# bead {i + 1}\n')
+            f.write(f'.transparency {transparency}\n')
+            f.write(f'.color {color2str(bead_color)}\n')
+            f.write(f'.sphere {pt2str(pos)} {np.round(bead_radius * nm2aafac, decimals=decimals)}\n')
+
+    return fn
+
+
 def _triads2bild(
     fn: Path | str,
     poses: np.ndarray,
@@ -359,5 +467,17 @@ def poses2pdb(
     if len(poses) != len(seq):
         raise ValueError(f'Dimension of poses ({poses.shape}) and seq ({len(seq)}) do not match.')
     iopmc.gen_pdb(str(fn), poses[:,:3,3], poses[:,:3,:3], sequence=seq, center=False)
+    
+def poses2cif(
+    fn: Path | str, 
+    poses: np.ndarray, 
+    seq: str
+    ) -> None:
+    fn = Path(fn)
+    if fn.suffix.lower() != '.cif':
+        fn = fn.with_suffix('.cif')
+    if len(poses) != len(seq):
+        raise ValueError(f'Dimension of poses ({poses.shape}) and seq ({len(seq)}) do not match.')
+    iopmc.gen_cif(str(fn), poses[:,:3,3], poses[:,:3,:3], sequence=seq, center=False)
     
     
