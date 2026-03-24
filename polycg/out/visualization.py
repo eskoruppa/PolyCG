@@ -21,7 +21,7 @@ def visualize_chimerax(
     bead_radius: float | None = None,
     disc_len: float = 0.34,
     include_bps_triads: bool = False,
-    use_cif: bool = False,
+    config_filetype: str = 'pdb', # options: 'pdb', 'cif'
     additional_beads: dict[str, np.ndarray | float | str] | None = None,
     quality: float = 3.0,
     spheres_as_bild: bool = True
@@ -58,9 +58,9 @@ def visualize_chimerax(
         poses = gen_config(shape_params,disc_len=disc_len)
 
     if len(poses) > 500:
-        use_cif = True
+        config_filetype = 'cif'
 
-    if use_cif:
+    if config_filetype == 'cif':
         if len(poses) > 2000:
             nchuncks = int(np.ceil(len(poses)/2000))
             pdbfn = []
@@ -73,10 +73,12 @@ def visualize_chimerax(
             # generate cif file
             pdbfn = base_fn.with_suffix('.cif')
             poses2cif(pdbfn, poses, seq)  
-    else:
+    elif config_filetype == 'pdb':
         # generate pdb file
         pdbfn = base_fn.with_suffix('.pdb')
         poses2pdb(pdbfn, poses, seq)
+    else:
+        raise ValueError(f"Invalid config_filetype {config_filetype}, expected 'pdb' or 'cif'")
     
     # create bild file for triads
     bildfn = base_fn.with_name(base_fn.name + '_triads.bild')
