@@ -87,9 +87,6 @@ def algebra2group_lintrans(
                 resulting vectors will be defined in the standard SE3 definition assuming that the 
                 splitting between static and dynamic compoent occures at the level of the group (SE3): 
                 g=s*d.
-                    / R   v \   / S   s \  / D   d \     / SD  Sd+s \
-                g =           =                       = 
-                    \ 0   1 /   \ 0   1 /  \ 0   1 /     \ 0     1  /
                 
     Returns:
         float: Linear transformation matrix that transforms small deviations around the given groundstate
