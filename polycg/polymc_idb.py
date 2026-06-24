@@ -318,7 +318,7 @@ if __name__ == "__main__":
             print(f'overlap_size: {overlap_size}')
             print(f'tail_size:    {tail_size}')
 
-            gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=closed,ndims=3)
+            gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=closed,ndims=3,verbose=True)
         
         ################################
         # RBPStiff
@@ -433,8 +433,9 @@ if __name__ == "__main__":
                 ##########################################################
                 # Coarse-Grain 
                 print('Coarse-graining stiffness')
-                cg_gs,cg_stiff = coarse_grain(gs,stiff,composite_size,start_id=first_id,allow_partial=True)
-                
+                cg_gs,cg_stiff = coarse_grain(gs,stiff,composite_size,start_id=first_id,allow_partial=True,verbose=True)
+                cg_stiff = cg_stiff.to_sparse()
+
                 ##########################################################
                 ##########################################################
                 # Marginalize translations
