@@ -10,6 +10,13 @@ from ..genconf import gen_config
 from .. utils.path_methods import create_relative_path
 
 
+# Accepted (case-insensitive) values for the `spheres_as` argument:
+#   'cmm'/'atoms' -> ChimeraX marker set (instanced atom spheres, the efficient default)
+#   'bild'        -> per-sphere BILD surface meshes
+#   'shape'       -> per-sphere `shape sphere` commands in the .cxc
+_SPHERE_STYLES = ('cmm', 'atoms', 'bild', 'shape')
+
+
 def visualize_chimerax(
     base_fn: str | Path,
     seq: str,
@@ -24,7 +31,8 @@ def visualize_chimerax(
     config_filetype: str = 'pdb', # options: 'pdb', 'cif'
     additional_beads: dict[str, np.ndarray | float | str] | None = None,
     quality: float = 3.0,
-    spheres_as_bild: bool = True
+    spheres_as: str = 'cmm',
+    sphere_triangles: int = 1000
 ) -> None:
     # Validate exactly one is provided
     if shape_params is None and poses is None:
@@ -43,6 +51,8 @@ def visualize_chimerax(
             raise ValueError(f"poses must have shape (N,4,4), got shape {poses.shape}")
     if cg < 1:
         raise ValueError(f"cg must be >= 1, got {cg}")
+    if spheres_as.lower() not in _SPHERE_STYLES:
+        raise ValueError(f"Invalid spheres_as {spheres_as!r}, expected one of {_SPHERE_STYLES}")
     
     # create relative path
     base_fn = Path(base_fn)
@@ -99,7 +109,7 @@ def visualize_chimerax(
         spheres[:,3] = bead_radius
     else:
        spheres = None
-    _chimeracxc(cxcfn, pdbfn, triadfn=bildfn, spheres=spheres, nm2aa=True, decimals=2, additional_triadfn=bps_triads_bildfn, additional_beads=additional_beads, quality=quality, spheres_as_bild=spheres_as_bild)
+    _chimeracxc(cxcfn, pdbfn, triadfn=bildfn, spheres=spheres, nm2aa=True, decimals=2, additional_triadfn=bps_triads_bildfn, additional_beads=additional_beads, quality=quality, spheres_as=spheres_as, sphere_triangles=sphere_triangles)
     
     
 def visualize_pdb(
@@ -252,7 +262,8 @@ def _chimeracxc(
     additional_triadfn: Path | str | None = None,
     additional_beads: dict[str, np.ndarray | float | str] | None = None,
     quality: float | None = 3.0,
-    spheres_as_bild: bool = True
+    spheres_as: str = 'cmm',
+    sphere_triangles: int = 1000
 ):
     
     fn = Path(fn)
@@ -308,13 +319,30 @@ def _chimeracxc(
             f.write(f'open {additional_triadfn.name}\n') 
         
         if spheres is not None:
-            if spheres_as_bild:
+            spheres_as = spheres_as.lower()
+            if spheres_as in ('cmm', 'atoms'):
+                # Represent the spheres as a marker set in their own file. Markers
+                # are atoms, so ChimeraX draws them as GPU-instanced spheres rather
+                # than N separate BILD surface meshes; per-bead radius lives in the
+                # .cmm file. Atom spheres otherwise use an automatic level-of-detail
+                # (10-2000 triangles each, fewer as the atom count grows) that looks
+                # faceted for many beads, so pin a fixed triangle count and lift the
+                # total-triangle ceiling (N*sphere_triangles) so it is not throttled.
+                spheres_cmmfn = fn.with_name(fn.stem + '_spheres.cmm')
+                _spheres2cmm(spheres_cmmfn, spheres, nm2aa=nm2aa, decimals=decimals)
+                modelnum += 1
+                f.write(f'\n# Load spheres as markers (instanced atom spheres)\n')
+                f.write(f'open {spheres_cmmfn.name}\n')
+                f.write(f'style #{modelnum} sphere\n')
+                f.write(f'graphics quality atomTriangles {sphere_triangles} totalAtomTriangles {max(len(spheres), 1) * sphere_triangles}\n')
+                f.write(f'transparency #{modelnum} 75 target a\n')
+            elif spheres_as == 'bild':
                 spheres_bildfn = fn.with_name(fn.stem + '_spheres.bild')
                 _spheres2bild(spheres_bildfn, spheres, nm2aa=nm2aa, decimals=decimals)
                 modelnum += 1
                 f.write(f'\n# Load spheres BILD\n')
                 f.write(f'open {spheres_bildfn.name}\n')
-            else:
+            elif spheres_as == 'shape':
                 nm2aafac = 10 if nm2aa else 1
                 def pt2str(pt):
                     return ','.join([f'{np.round(p*nm2aafac,decimals=decimals)}' for p in pt[:3]])
@@ -323,6 +351,8 @@ def _chimeracxc(
                     modelnum += 1
                     f.write(f'shape sphere radius {np.round(sphere[3]*nm2aafac,decimals=decimals)} center {pt2str(sphere)} name sph{shid+1}\n')
                     f.write(f'transparency #{modelnum} 75\n')
+            else:
+                raise ValueError(f"Invalid spheres_as {spheres_as!r}, expected one of {_SPHERE_STYLES}")
 
         if additional_beads is not None:
             beads_bildfn = fn.with_name(fn.stem + '_beads.bild')
@@ -357,6 +387,43 @@ def _spheres2bild(
         for i, sphere in enumerate(spheres):
             f.write(f'# sphere {i + 1}\n')
             f.write(f'.sphere {pt2str(sphere)} {np.round(sphere[3] * nm2aafac, decimals=decimals)}\n')
+
+    return fn
+
+
+def _spheres2cmm(
+    fn: Path | str,
+    spheres: np.ndarray,
+    name: str = 'spheres',
+    color: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    nm2aa: bool = True,
+    decimals: int = 2
+) -> Path:
+    """Write spheres as a ChimeraX marker set (.cmm).
+
+    Each row of ``spheres`` is (x, y, z, radius). Markers are ``Atom`` instances,
+    so ChimeraX renders them as GPU-instanced spheres whose smoothness follows the
+    global ``graphics quality`` setting -- far cheaper and higher quality than the
+    per-object surface meshes produced by ``_spheres2bild`` for large bead counts.
+    The per-marker radius is stored in the file, so size scaling needs no commands.
+    """
+    fn = Path(fn)
+    if fn.suffix.lower() != '.cmm':
+        fn = fn.with_suffix('.cmm')
+
+    nm2aafac = 10 if nm2aa else 1
+    r, g, b = color
+
+    with open(fn, 'w') as f:
+        f.write(f'<marker_set name="{name}">\n')
+        for i, sphere in enumerate(spheres):
+            x, y, z = (np.round(c * nm2aafac, decimals=decimals) for c in sphere[:3])
+            radius = np.round(sphere[3] * nm2aafac, decimals=decimals)
+            f.write(
+                f'<marker id="{i + 1}" x="{x}" y="{y}" z="{z}" '
+                f'radius="{radius}" r="{r}" g="{g}" b="{b}"/>\n'
+            )
+        f.write('</marker_set>\n')
 
     return fn
 
