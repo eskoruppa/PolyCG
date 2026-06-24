@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Sequence
 from pathlib import Path
 import numpy as np
 import scipy as sp
@@ -11,6 +11,7 @@ from .cgnaplus import cgnaplus_bps_params
 from .models.RBPStiff.read_params import GenStiffness
 from .partials import partial_stiff
 from .utils.bmat import BlockOverlapMatrix, crop_periodic_fold_fill_zeros
+from .transforms.transform_rescale import rescale_stiff_dofs
 
 
 _GEN_PARAMS_CGNAPLUS_ROT_IN_NM    = True
@@ -394,6 +395,7 @@ def _gen_params_open(
     cgnap_setname: str,
     print_info: bool = False,
     verbose: bool = False,
+    dof_rescale: Sequence[float] | None = None,
 ) -> DNAParameters:
     """
     Generate parameters for open (linear) topology.
@@ -443,6 +445,13 @@ def _gen_params_open(
                 rotations_only=_GEN_PARAMS_CGNAPLUS_ROT_ONLY
             )
     
+    # Apply optional per-DOF rescaling of the base stiffness *before* coarse-graining.
+    # Done here (rather than inside coarse_grain) so it applies for any composite_size,
+    # keeping the returned stiffmat (rescaled base) and cg_stiffmat (coarse-graining of
+    # the rescaled base) mutually consistent.
+    if dof_rescale is not None:
+        stiff = rescale_stiff_dofs(stiff, dof_rescale, ndims=_GEN_PARAMS_NDIMS)
+
     # Handle no coarse-graining case
     if composite_size <= 1:
         gs, stiff, sequence = _apply_sequence_range(gs, stiff, sequence, start_id, end_id)
@@ -513,6 +522,7 @@ def _gen_params_closed(
     cgnap_setname: str,
     print_info: bool = False,
     verbose: bool = False,
+    dof_rescale: Sequence[float] | None = None,
 ) -> DNAParameters:
     """
     Generate parameters for closed (circular) topology.
@@ -536,7 +546,11 @@ def _gen_params_closed(
     # Local models (Olson, Lankas)
     if model.lower() in _GEN_PARAMS_OLSON_IDENTIFIERS + _GEN_PARAMS_LANKAS_IDENTIFIERS:
         gs, stiff = _generate_local_model_params(model, sequence, closed=True)
-        
+
+        # Optional per-DOF rescaling of the base stiffness before coarse-graining.
+        if dof_rescale is not None:
+            stiff = rescale_stiff_dofs(stiff, dof_rescale, ndims=_GEN_PARAMS_NDIMS)
+
         # Coarse-grain parameters
         block_ncomp, overlap_ncomp, tail_ncomp = _calculate_coarse_grain_params(
             block_size, overlap_size, tail_size, composite_size
@@ -610,7 +624,11 @@ def _gen_params_closed(
             if print_info and verbose:
                 print('Convert to sparse matrix')
             stiff = bmat_stiff.to_sparse()
-            
+
+            # Optional per-DOF rescaling of the base stiffness before coarse-graining.
+            if dof_rescale is not None:
+                stiff = rescale_stiff_dofs(stiff, dof_rescale, ndims=_GEN_PARAMS_NDIMS)
+
             return DNAParameters(
                 sequence=sequence,
                 model=model,
@@ -651,6 +669,14 @@ def _gen_params_closed(
             verbose=verbose,
         )
         
+        # Convert the extended stiffness to a single sparse matrix once, then apply the
+        # optional per-DOF rescaling *before* coarse-graining. The same rescaled matrix is
+        # reused both as the coarse-graining input and to build the returned base-level
+        # stiffness below, keeping the two consistent (and avoiding a second conversion).
+        ext_stiff = bmat_ext_stiff.to_sparse() if isinstance(bmat_ext_stiff, BlockOverlapMatrix) else bmat_ext_stiff
+        if dof_rescale is not None:
+            ext_stiff = rescale_stiff_dofs(ext_stiff, dof_rescale, ndims=_GEN_PARAMS_NDIMS)
+
         # Coarse-grain extended parameters
         block_ncomp, overlap_ncomp, tail_ncomp = _calculate_coarse_grain_params(
             block_size, overlap_size, tail_size, composite_size
@@ -664,7 +690,7 @@ def _gen_params_closed(
         
         cg_gs_ext, bmat_cg_stiff_ext = coarse_grain(
             ext_gs,
-            bmat_ext_stiff,
+            ext_stiff,
             composite_size,
             start_id=start_id,
             end_id=end_id,
@@ -703,11 +729,9 @@ def _gen_params_closed(
             cg_nbps * _GEN_PARAMS_NDIMS
         )
         
-        # Create base-level stiffness from extended version
-        if print_info and verbose:
-            print('Convert to sparse matrix')
-        base_stiff = bmat_ext_stiff.to_sparse() if isinstance(bmat_ext_stiff, BlockOverlapMatrix) else bmat_ext_stiff
-        base_stiff = base_stiff[
+        # Create base-level stiffness by cropping the (already converted and rescaled)
+        # extended stiffness back to the fundamental domain.
+        base_stiff = ext_stiff[
             overlap_size * _GEN_PARAMS_NDIMS:(overlap_size + nbps) * _GEN_PARAMS_NDIMS,
             overlap_size * _GEN_PARAMS_NDIMS:(overlap_size + nbps) * _GEN_PARAMS_NDIMS
         ]
@@ -741,6 +765,7 @@ def gen_params(
     cgnap_setname: str = 'curves_plus',
     print_info: bool = False,
     verbose: bool = False,
+    dof_rescale: Sequence[float] | None = None,
     ) -> DNAParameters:
     """
     Generate sequence-dependent DNA shape and stiffness parameters with optional coarse-graining.
@@ -837,6 +862,12 @@ def gen_params(
         Master verbose flag controlling all print output. If False, no output is printed regardless 
         of show_params_info. If True, enables printing in this function and called functions 
         (partial_stiff, coarse_grain).
+    dof_rescale : sequence of float or None, default=None
+        Optional per-degree-of-freedom stiffness rescaling applied to the base-pair-step
+        stiffness *before* coarse-graining. Must have length 6 (one positive factor per DOF;
+        1.0 leaves that DOF unchanged). Applied regardless of ``composite_size``, so the
+        returned ``stiffmat`` is always the rescaled base matrix and ``cg_stiffmat`` is the
+        coarse-graining of that rescaled matrix. If None, no rescaling is applied.
 
     Returns
     -------
@@ -987,7 +1018,13 @@ def gen_params(
     
     if composite_size < 1:
         raise ValueError(f'composite_size must be >= 1, got {composite_size}')
-    
+
+    if dof_rescale is not None and len(dof_rescale) != _GEN_PARAMS_NDIMS:
+        raise ValueError(
+            f'dof_rescale must have length {_GEN_PARAMS_NDIMS} (one factor per degree of '
+            f'freedom); got length {len(dof_rescale)}'
+        )
+
     # Dispatch to topology-specific helper functions
     if not closed:
         return _gen_params_open(
@@ -1004,6 +1041,7 @@ def gen_params(
             cgnap_setname=cgnap_setname,
             print_info=print_info,
             verbose=verbose,
+            dof_rescale=dof_rescale,
         )
     else:
         return _gen_params_closed(
@@ -1019,6 +1057,7 @@ def gen_params(
             cgnap_setname=cgnap_setname,
             print_info=print_info,
             verbose=verbose,
+            dof_rescale=dof_rescale,
         )
 
     

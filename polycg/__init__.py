@@ -38,6 +38,7 @@ from .utils.seq import randseq, unique_oli_seq, all_oligomers, unique_seq_of_cha
 from .transforms.transform_cayley2euler import cayley2euler, cayley2euler_lintrans, cayley2euler_stiffmat
 from .transforms.transform_algebra2group import algebra2group_stiffmat, group2algebra_stiffmat
 from .transforms.transform_algebra2group import algebra2group_lintrans, group2algebra_lintrans
+from .transforms.transform_rescale import rescale_kth, rescale_stiff, rescale_stiff_dofs
 
 ############################
 # Visualizations
