@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 import numpy as np
 import scipy as sp
 from scipy import sparse
@@ -38,7 +39,8 @@ def cgnaplus_bps_params(
     group_split: bool = False,
     parameter_set_name: str = 'curves_plus',
     remove_factor_five: bool = True,
-    rotations_only: bool = False
+    rotations_only: bool = False,
+    rescale_factors: Sequence[float] = None,
     ) -> tuple[np.ndarray,np.ndarray]:
 
     if parameter_set_name == 'curves_plus':
@@ -54,8 +56,16 @@ def cgnaplus_bps_params(
         remove_factor_five=remove_factor_five,
         symmetrize=True,
         rotations_only=rotations_only,
-        )    
-    return rbp.gs, rbp.stiffmat
+        ) 
+    
+    gs = rbp.gs
+    if rescale_factors is not None:
+        if len(rescale_factors) != 6:
+            raise ValueError(f"rescale_factors must be a sequence of length 6, got {len(rescale_factors)}")
+        stiffmat = rbp.rescale_stiffness(rescale_factors)
+    else:
+        stiffmat = rbp.stiffmat
+    return gs, stiffmat
 
 
 def cgnaplus_bps_params_legacy(
