@@ -19,4 +19,4 @@
 	branch = main
 [submodule "polycg/models/cgNAplusParams"]
 	path = polycg/models/cgNAplusParams
-	url = git@github.com:eskoruppa/cgNAplusParams
+	url = https://github.com/eskoruppa/cgNAplusParams
