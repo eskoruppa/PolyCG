@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import scipy as sp
 from typing import List, Tuple
-from scipy.sparse import lil_matrix, csc_matrix
+from scipy.sparse import lil_matrix, csc_matrix, coo_matrix
 
 
 # from scipy.sparse import csc_matrix, csr_matrix, spmatrix, coo_matrix, bsr_matrix, lil_matrix
@@ -249,7 +249,97 @@ class BOMat:
     
     def get_zeros_mat(self,dtype=np.float64) -> np.ndarray:
         return np.zeros((self.x2 - self.x1, self.y2 - self.y1),dtype=dtype)
-    
+
+    ###################################################################################
+
+    def extract_coo(
+        self,
+        x1: int,
+        x2: int,
+        y1: int,
+        y2: int,
+        xrge: int | None = None,
+        yrge: int | None = None,
+        use_weight: bool = True,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
+        """
+        COO-triplet counterpart of :meth:`extract`.
+
+        Instead of accumulating this block's contribution into a target matrix,
+        return the contribution as flat arrays ``(rows, cols, vals, cnts)`` in the
+        query-window-local coordinate system (i.e. offsets into ``[x1, x2) x [y1, y2)``).
+        ``vals`` are already multiplied by the block weight and ``cnts`` hold the
+        corresponding weights, so that a caller assembling several blocks can build a
+        weighted sum and a weight count and divide the two to obtain the average.
+
+        The overlap/periodic-image semantics are identical to :meth:`extract`; this
+        method exists purely to enable a vectorised, sparse-friendly assembly (see
+        :meth:`BlockOverlapMatrix.to_sparse`). Returns ``None`` when the block does
+        not contribute to the requested window.
+        """
+        if not self.periodic:
+            if self.x2 <= x1 or self.x1 >= x2 or self.y2 <= y1 or self.y1 >= y2:
+                return None
+            return self._extract_coo(x1, x2, y1, y2, use_weight=use_weight)
+
+        if xrge is None: xrge = self.xrge
+        if yrge is None: yrge = self.yrge
+
+        xshifts = self._periodic_shifts(self.x1, self.x2, x1, x2, xrge)
+        yshifts = self._periodic_shifts(self.y1, self.y2, y1, y2, yrge)
+
+        parts = []
+        for xshift in xshifts:
+            for yshift in yshifts:
+                part = self._extract_coo(
+                    x1 - xshift, x2 - xshift, y1 - yshift, y2 - yshift,
+                    use_weight=use_weight,
+                )
+                if part is not None:
+                    parts.append(part)
+
+        if not parts:
+            return None
+        return (
+            np.concatenate([p[0] for p in parts]),
+            np.concatenate([p[1] for p in parts]),
+            np.concatenate([p[2] for p in parts]),
+            np.concatenate([p[3] for p in parts]),
+        )
+
+    def _extract_coo(
+        self,
+        x1: int,
+        x2: int,
+        y1: int,
+        y2: int,
+        use_weight: bool = True,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
+        # Overlap region between the block and the (possibly shifted) query window.
+        xlo = max(self.x1, x1)
+        xhi = min(self.x2, x2)
+        ylo = max(self.y1, y1)
+        yhi = min(self.y2, y2)
+
+        if xlo >= xhi or ylo >= yhi:
+            return None
+
+        weight = self.weight if use_weight else 1
+
+        # Window-local target indices (offsets into [x1, x2) x [y1, y2)).
+        tx = np.arange(xlo - x1, xhi - x1, dtype=np.int32)
+        ty = np.arange(ylo - y1, yhi - y1, dtype=np.int32)
+
+        # Source slices in block-local coordinates.
+        bxs = slice(xlo - self.x1, xhi - self.x1)
+        bys = slice(ylo - self.y1, yhi - self.y1)
+        block_vals = self.mat[bxs, bys]
+
+        rows, cols = np.meshgrid(tx, ty, indexing='ij')
+        vals = (block_vals * weight).ravel()
+        cnts = np.full(vals.shape, float(weight))
+        return rows.ravel(), cols.ravel(), vals, cnts
+
 
 #######################################################################################
 #######################################################################################
@@ -782,25 +872,70 @@ class BlockOverlapMatrix:
                 )
         
         nx, ny = xhi-xlo, yhi-ylo
-        # Accumulate numerator and counts
-        S = lil_matrix((nx, ny))
-        C = lil_matrix((nx, ny))
+
+        # ------------------------------------------------------------------
+        # Previous implementation: accumulate into a lil_matrix via per-block
+        # dense slice-assignment, then convert. This is a scipy anti-pattern and
+        # dominated the post-assembly runtime. Kept here (commented out) for
+        # reference; superseded by the COO-triplet assembly below.
+        # ------------------------------------------------------------------
+        # # Accumulate numerator and counts
+        # S = lil_matrix((nx, ny))
+        # C = lil_matrix((nx, ny))
+        # for block in self.matblocks:
+        #     S, C = block.extract(
+        #         S, C,
+        #         xlo, xhi,
+        #         ylo, yhi,
+        #         xrge=xhi-xlo,
+        #         yrge=yhi-ylo,
+        #         use_weight=True
+        #     )
+        # # Convert to CSC for efficient arithmetic
+        # S = S.tocsc()
+        # C = C.tocsc()
+        #
+        # # Elementwise division: only where C > 0
+        # if C.nnz == 0:
+        #     return S
+        # C.data = 1.0 / C.data
+        # S = S.multiply(C)
+        # return S
+
+        # Gather each block's contribution as COO triplets, then build the numerator
+        # (weighted sum) and count (sum of weights) matrices in one vectorised pass.
+        # Duplicate (row, col) entries from overlapping blocks are summed automatically
+        # on conversion to CSC, reproducing the weighted-average semantics exactly.
+        rows, cols, sdata, cdata = [], [], [], []
         for block in self.matblocks:
-            S, C = block.extract(
-                S, C,
+            part = block.extract_coo(
                 xlo, xhi,
                 ylo, yhi,
                 xrge=xhi-xlo,
                 yrge=yhi-ylo,
-                use_weight=True
+                use_weight=True,
             )
-        # Convert to CSC for efficient arithmetic
-        S = S.tocsc()
-        C = C.tocsc()
+            if part is None:
+                continue
+            rows.append(part[0])
+            cols.append(part[1])
+            sdata.append(part[2])
+            cdata.append(part[3])
+
+        if not rows:
+            return csc_matrix((nx, ny))
+
+        rows = np.concatenate(rows)
+        cols = np.concatenate(cols)
+        sdata = np.concatenate(sdata)
+        cdata = np.concatenate(cdata)
+
+        S = coo_matrix((sdata, (rows, cols)), shape=(nx, ny)).tocsc()
+        C = coo_matrix((cdata, (rows, cols)), shape=(nx, ny)).tocsc()
 
         # Elementwise division: only where C > 0
         if C.nnz == 0:
-            return S 
+            return S
         C.data = 1.0 / C.data
         S = S.multiply(C)
         return S

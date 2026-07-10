@@ -29,7 +29,36 @@ CURVES_PLUS_DATASET_NAME = "Prmset_cgDNA+_CGF_10mus_int_12mus_ends"
 # CURVES_PLUS_DATASET_NAME = "Prmset_cgRNA+_OL3_CGF_10mus_int_12mus_ends"
 # CURVES_PLUS_DATASET_NAME = "Di_hmethyl_methylated-hemi_combine"
 
+from .models.cgNAplusParams.cgnaplusparams import RBPParams
+
 def cgnaplus_bps_params(
+    sequence: str, 
+    translations_in_nm: bool = True,
+    euler_definition: bool = True,
+    group_split: bool = False,
+    parameter_set_name: str = 'curves_plus',
+    remove_factor_five: bool = True,
+    rotations_only: bool = False
+    ) -> tuple[np.ndarray,np.ndarray]:
+
+    if parameter_set_name == 'curves_plus':
+        parameter_set_name = CURVES_PLUS_DATASET_NAME
+
+    rbp = RBPParams(
+        sequence,
+        parameter_set_name=parameter_set_name,
+        euler_definition=euler_definition,
+        group_split=group_split,
+        translations_in_nm=translations_in_nm,
+        include_stiffness=True,
+        remove_factor_five=remove_factor_five,
+        symmetrize=True,
+        rotations_only=rotations_only,
+        )    
+    return rbp.gs, rbp.stiffmat
+
+
+def cgnaplus_bps_params_legacy(
     sequence: str, 
     translations_in_nm: bool = True,
     euler_definition: bool = True,

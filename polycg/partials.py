@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any
 from .utils.bmat import BlockOverlapMatrix
 from .transforms.transform_statevec import statevec2vecs
-from .utils.console_output import print_progress
+from .utils.console_output import ProgressBar
 
 PARTIALS_MIN_BLOCK = 4
 
@@ -168,6 +168,7 @@ def _partial_stiff_linear(
 
     if verbose:
         print(f"Generating {Nsegs} stiffness blocks for {N} base-pair steps")
+        progress = ProgressBar(Nsegs, prefix='Progress:', show_eta=True)
     for i in range(Nsegs):
         # block range
         id1 = i * block_incr
@@ -180,7 +181,7 @@ def _partial_stiff_linear(
         assert id2 <= N, "bu exceeds bounds for seg other than last."
 
         if verbose:
-            print_progress(i + 1, Nsegs, prefix='Progress:', suffix=f'Block {i+1}/{Nsegs} (bps {id1}-{id2})')
+            progress.update(i + 1, suffix=f'Block {i+1}/{Nsegs} (bps {id1}-{id2})')
 
         pgs, pstiff = _extract_bps_stiff(
             seq,
@@ -249,6 +250,7 @@ def _partial_stiff_closed(
 
     if verbose:
         print(f"Generating {Nsegs} stiffness blocks for {N_full} base-pair steps (closed topology)")
+        progress = ProgressBar(Nsegs, prefix='Progress:', show_eta=True)
     for i in range(Nsegs):
         # block range
         id1 = i * block_incr
@@ -256,9 +258,9 @@ def _partial_stiff_closed(
 
         if i == lastseg_id and id2 < N_full:
             id2 = N_full
-            
+
         if verbose:
-            print_progress(i + 1, Nsegs, prefix='Progress:', suffix=f'Block {i+1}/{Nsegs} (bps {id1}-{id2})')
+            progress.update(i + 1, suffix=f'Block {i+1}/{Nsegs} (bps {id1}-{id2})')
 
         pgs, pstiff = _extract_bps_stiff(
             seq,

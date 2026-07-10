@@ -110,6 +110,8 @@ if __name__ == "__main__":
         verbose=True,
         print_info=False,
     )
+    print('generated!')
+    sys.exit()
     
     if args.output_basename is None:
         base_fn = Path(seqfn)

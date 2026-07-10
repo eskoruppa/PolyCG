@@ -9,7 +9,7 @@ from .composites import composite_matrix, inv_composite_matrix, composite_ground
 from .transforms.transform_marginals import marginal_schur_complement, matrix_marginal
 from .utils.bmat import BlockOverlapMatrix
 from .transforms.transform_statevec import vecs2statevec, statevec2vecs
-from .utils.console_output import print_progress
+from .utils.console_output import ProgressBar
 
 import time
 
@@ -299,6 +299,7 @@ def _cg_stiff_partial_linear(
 
     if verbose:
         print(f"Coarse-graining {Nsegs} blocks ({Ncg*composite_size} total bps, composite_size={composite_size})")
+        progress = ProgressBar(Nsegs, prefix='Progress:', show_eta=True)
     for i in range(Nsegs):
         # block range
         id1 = i * block_incr
@@ -311,7 +312,7 @@ def _cg_stiff_partial_linear(
         ), f"id2 ({id2}) should never exceed the number of cg steps, Ncg ({Ncg})."
 
         if verbose:
-            print_progress(i + 1, Nsegs, prefix='Progress:', suffix=f'Block {i+1}/{Nsegs} (bps {id1*composite_size}-{id2*composite_size})')
+            progress.update(i + 1, suffix=f'Block {i+1}/{Nsegs} (bps {id1*composite_size}-{id2*composite_size})')
 
         lid = id1 - tail_ncomp
         uid = id2 + tail_ncomp
