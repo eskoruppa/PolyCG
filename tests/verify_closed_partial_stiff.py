@@ -433,10 +433,11 @@ def check(root, G, P, C, args):
             rep.check('polymc_idb, open 300 bp, -cg 1 2 5', r.returncode == 0 and n_idb == 3,
                       f'{n_idb} IDB files' + ('' if r.returncode == 0 else ', ' + r.stderr.strip().splitlines()[-1][:110]))
             (tmp / 'ring100.seq').write_text(SEQ[:100])
-            r = run('polycg.polymc_idb', '-seqfns', str(tmp / 'ring100.seq'), '-closed')
-            rep.check('polymc_idb, closed 100 bp stops at the known limitation "closed not yet implemented"',
-                      r.returncode != 0 and 'closed not yet implemented' in r.stderr,
-                      (r.stderr.strip().splitlines() or [''])[-1][:110])
+            r = run('polycg.polymc_idb', '-seqfns', str(tmp / 'ring100.seq'), '-closed', '-cg', '1', '5')
+            n_idb = len(list(tmp.glob('ring100_cgnaplus_*bp_4cr_closed.idb')))
+            rep.check('polymc_idb, closed 100 bp, -cg 1 5 (contents checked by tests/verify_polymc_idb.py)',
+                      r.returncode == 0 and n_idb == 2,
+                      f'{n_idb} IDB files' + ('' if r.returncode == 0 else ', ' + r.stderr.strip().splitlines()[-1][:110]))
             for closed in (1, 0):
                 r = run('polycg.cgnaplus', '-seqfn', str(tmp / 's21.seq'), '-closed', str(closed))
                 base = tmp / ('s21.seq_params' + ('_closed' if closed else ''))

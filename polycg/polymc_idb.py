@@ -20,7 +20,7 @@ from .utils.seq import (
 )
 
 from .utils.load_seq import load_sequence
-from .partials import partial_stiff
+from .partials import partial_stiff, periodic_extension, fold_periodic
 from .cg import coarse_grain
 from .transforms.transform_marginals import matrix_rotmarginal,vector_rotmarginal
 from .transforms.transform_statevec import statevec2vecs, vecs2statevec
@@ -64,8 +64,16 @@ def stiff2idb(
     else:
         Nbp = Nbps + 1
     olisize = couprange2olisize(couprange)
+    if closed:
+        if Nbps < olisize:
+            raise ValueError(
+                f'A closed chain with interaction range {couprange} needs at least {olisize} sites '
+                f'(PolyMC rejects shorter rings), got {Nbps}.'
+            )
+        if seq is not None and len(seq) != Nbps:
+            raise ValueError(f'A closed chain of {Nbps} sites requires a sequence of length {Nbps}, got {len(seq)}.')
 
-    if seq is None or (unique_sequence and not unique_olis_in_seq(seq, olisize)):
+    if seq is None or (unique_sequence and not _unique_olis(seq, couprange, closed)):
         assignseq, chars = unique_oli_seq(
             Nbp, olisize, closed=closed, boundary=boundary_char, exclude=exclude_chars
         )
@@ -73,6 +81,12 @@ def stiff2idb(
         assignseq = str(seq)
         chars = "".join(sorted(set(assignseq)))
      
+    if closed:
+        # periodic windows are read with index lists
+        if isinstance(stiff, BlockOverlapMatrix):
+            stiff = stiff.to_sparse()
+        stiff = sp.sparse.csr_matrix(stiff)
+
     # allow cross boundary assignment
     if isinstance(stiff, BlockOverlapMatrix):
         stiff.check_bounds_on_read = False
@@ -112,8 +126,18 @@ def stiff2idb(
     if seq is not None:
         sequence_file(basefilename + ".origseq", seq, add_extension=False)
 
+def _unique_olis(seq: str, couprange: int, closed: bool) -> bool:
+    if not closed:
+        return unique_olis_in_seq(seq, couprange2olisize(couprange))
+    # on a ring the oligomers of the steps next to the seam wrap around
+    olis = [seq2oliseq(seq, i, couprange, True) for i in range(len(seq))]
+    return len(set(olis)) == len(olis)
+
 def _matassign(stiff ,cl: int ,cu: int, closed: bool):
     
+    if closed:
+        return _matassign_periodic(stiff, cl, cu)
+
     def _select_dense(stiff,cl,cu):
         P = stiff[cl:cu,cl:cu]
         if sp.sparse.issparse(P):
@@ -127,19 +151,25 @@ def _matassign(stiff ,cl: int ,cu: int, closed: bool):
     au = size
     M = np.zeros((size,size))
     if cl < 0:
-        if closed:
-            raise ValueError(f'closed not yet implemented: properly implement this with bmat')
         al = -cl 
         cl = 0
     if cu > stiff.shape[0]:
-        if closed:
-            raise ValueError(f'closed not yet implemented: properly implement this with bmat')
         au = size - (cu - stiff.shape[0])
         cu = stiff.shape[0]
     
     M[al:au,al:au] = _select_dense(stiff,cl,cu)
     return M
     
+def _matassign_periodic(stiff, cl: int, cu: int):
+    # window of a ring matrix with the indices taken modulo the ring size
+    if cu - cl > stiff.shape[0]:
+        raise ValueError(f'selection range larger than matrix')
+    ids = np.arange(cl, cu) % stiff.shape[0]
+    P = stiff[ids][:, ids]
+    if sp.sparse.issparse(P):
+        P = P.toarray()
+    return np.asarray(P, dtype=float)
+
 def _mat2idbcoups(M: np.ndarray):
     ndims = 3
     N = M.shape[0] // ndims
@@ -198,6 +228,74 @@ def gen_gs_config(gs,disc_len):
     for i in range(n):
         taus[i+1] = taus[i] @ se3trans[i]
     return taus
+
+
+##########################################################################################################
+############### Closed chains ############################################################################
+##########################################################################################################
+
+
+def _check_closed(nbp: int, composite_size: int, couprange: int, first_id: int) -> None:
+    if composite_size < 1:
+        raise ValueError(f'Composite size needs to be at least 1, got {composite_size}.')
+    if nbp % composite_size != 0:
+        raise ValueError(
+            f'For a closed chain the number of base pairs ({nbp}) must be a multiple of the '
+            f'composite size ({composite_size}).'
+        )
+    if composite_size > 1 and first_id != 0:
+        raise ValueError(f'Closed chains require first_id=0, got {first_id}.')
+    nsites = nbp // composite_size
+    if nsites < couprange2olisize(couprange):
+        raise ValueError(
+            f'A closed chain of {nsites} sites (composite size {composite_size}) is too short for coupling '
+            f'range {couprange}: PolyMC requires at least 2*coupling_range+2 = {couprange2olisize(couprange)} sites.'
+        )
+
+
+def _cgnaplus_chain(seq: str, stiffgen_args: dict[str, Any], block_size: int, overlap_size: int, tail_size: int):
+    gs, stiff = partial_stiff(
+        seq, cgnaplus_bps_params, stiffgen_args, block_size=block_size, overlap_size=overlap_size,
+        tail_size=tail_size, closed=False, ndims=3, verbose=True
+    )
+    return gs, stiff.to_sparse()
+
+
+def _local_chain(seq: str, method: str):
+    params = GenStiffness(method=method).gen_params(seq, use_group=True, sparse=True)
+    gs = statevec2vecs(vector_rotmarginal(vecs2statevec(params['groundstate'])), vdim=3)
+    return gs, matrix_rotmarginal(params['stiffness'])
+
+
+def _closed_coarse_grain(
+    seq: str,
+    chain_params,
+    composite_size: int,
+    block_ncomp: int,
+    overlap_ncomp: int,
+    tail_ncomp: int,
+    margin: int = 0,
+    scale_factor: float = 1,
+    ndims: int = 3,
+):
+    # The ring is unrolled into an open chain that extends R steps (whole composites) beyond the ring
+    # on either side. The chain is coarse-grained like an open chain and the rows of the ring composites
+    # are folded back onto the ring (as in _gen_params_closed). R covers the overlap and the tails of the
+    # coarse-graining blocks and at least the margin needed by chain_params.
+    R = max((overlap_ncomp + tail_ncomp) * composite_size, margin)
+    R = int(np.ceil(R / composite_size)) * composite_size
+    ext_gs, ext_stiff = chain_params(periodic_extension(seq, R))
+    cg_gs, cg_stiff = coarse_grain(
+        ext_gs, ext_stiff * scale_factor, composite_size, allow_partial=True, block_ncomp=block_ncomp,
+        overlap_ncomp=overlap_ncomp, tail_ncomp=tail_ncomp, allow_crop=False, verbose=True
+    )
+    Rc = R // composite_size
+    ncg = len(seq) // composite_size
+    if isinstance(cg_stiff, BlockOverlapMatrix):
+        rows = cg_stiff.to_sparse(xlo=Rc * ndims, xhi=(Rc + ncg) * ndims)
+    else:
+        rows = sp.sparse.csr_matrix(cg_stiff)[Rc * ndims:(Rc + ncg) * ndims]
+    return cg_gs[Rc:Rc + ncg], fold_periodic(rows, Rc, ndims)
 
 
 if __name__ == "__main__":
@@ -280,6 +378,9 @@ if __name__ == "__main__":
             raise IOError('Empty sequence found')
         print(f'found sequence of length {len(seq)}')
         seq = seq.lower()
+        if closed:
+            for composite_size in composite_sizes:
+                _check_closed(len(seq), composite_size, couprange, first_id)
         # seq = seq[:1500]
         unique_sequence = True
         
@@ -316,23 +417,38 @@ if __name__ == "__main__":
             if isinstance(stiff, BlockOverlapMatrix):
                 stiff = stiff.to_sparse()
         
+            if closed:
+                # open chain over a periodic extension of the ring, used to coarse-grain the ring
+                def chain_params(chain_seq):
+                    return _cgnaplus_chain(chain_seq, stiffgen_args, block_size, overlap_size, tail_size)
+                chain_margin = overlap_size + tail_size
+
         ################################
         # RBPStiff
         
-        if model.lower() in ['rbp','rbpstiff','lankas']:
+        if model.lower() in ['rbp','rbpstiff','lankas'] and not closed:
             print('generating stiffness with RBPStiff')
             genstiff = GenStiffness(method='md')
             stiff, gs = genstiff.gen_params(seq,use_group=True,sparse=True)
             gs    = statevec2vecs(vector_rotmarginal(vecs2statevec(gs)),vdim=3)
             stiff = matrix_rotmarginal(stiff)
             
-        if model.lower() in ['crystal','olson']:
+        if model.lower() in ['crystal','olson'] and not closed:
             print('generating stiffness with RBPStiff')
             genstiff = GenStiffness(method='crystal')
             stiff, gs = genstiff.gen_params(seq,use_group=True,sparse=True)
             gs    = statevec2vecs(vector_rotmarginal(vecs2statevec(gs)),vdim=3)
             stiff = matrix_rotmarginal(stiff)
             
+        if model.lower() in ['rbp','rbpstiff','lankas','crystal','olson'] and closed:
+            print('generating stiffness with RBPStiff')
+            local_method = 'md' if model.lower() in ['rbp','rbpstiff','lankas'] else 'crystal'
+            def chain_params(chain_seq):
+                return _local_chain(chain_seq, local_method)
+            chain_margin = 0
+            # the closing step joins the last and the first base pair
+            gs, stiff = chain_params(seq + seq[0])
+
         ##########################################################
         ##########################################################
         # Rescale Stiffness
@@ -348,6 +464,8 @@ if __name__ == "__main__":
             outfn = os.path.splitext(seqfn)[0] + f'_{model}_{composite_size}bp' + f'_{couprange}cr'
             if scale_factor != 1:
                 outfn += ('_rescaled_%.3f'%scale_factor).replace('.','p')
+            if closed:
+                outfn += '_closed'
             
             block_ncomp   = np.max([int(np.ceil(160/composite_size)),2*couprange])
             overlap_ncomp = int(np.max([couprange,2]))
@@ -404,7 +522,7 @@ if __name__ == "__main__":
                     taus[:,:3,3] = taus[:,:3,3] - np.mean(taus[:,:3,3],axis=0)
                     
                     pdbfn = outfn + '_gs.pdb' 
-                    gen_pdb(pdbfn, taus[:,:3,3], taus[:,:3,:3], sequence=seq, center=False)
+                    gen_pdb(pdbfn, taus[:,:3,3], taus[:,:3,:3], sequence=seq + seq[0] if closed else seq, center=False)
                     
                     xyz = {
                         'types': ['C']*(len(taus)),
@@ -429,8 +547,14 @@ if __name__ == "__main__":
                 ##########################################################
                 # Coarse-Grain 
                 print('Coarse-graining stiffness')
-                cg_gs,cg_stiff = coarse_grain(gs,stiff,composite_size,start_id=first_id,allow_partial=True,verbose=True)
-                cg_stiff = cg_stiff.to_sparse()
+                if closed:
+                    cg_gs,cg_stiff = _closed_coarse_grain(
+                        seq, chain_params, composite_size, block_ncomp, overlap_ncomp, tail_ncomp,
+                        margin=chain_margin, scale_factor=scale_factor
+                    )
+                else:
+                    cg_gs,cg_stiff = coarse_grain(gs,stiff,composite_size,start_id=first_id,allow_partial=True,verbose=True)
+                    cg_stiff = cg_stiff.to_sparse()
 
                 ##########################################################
                 ##########################################################
@@ -464,8 +588,6 @@ if __name__ == "__main__":
                 cgNbps = len(gs_rot) // 3
                 if not closed:
                     cgNbps += 1
-                else:
-                    raise ValueError(f'Closed CG not properly implemented')
                     
                 assignseq, chars = unique_oli_seq(
                     cgNbps, couprange2olisize(couprange), closed=closed, boundary="x", exclude="y"
