@@ -4,6 +4,7 @@ import sys
 import numpy as np
 from collections.abc import Callable
 from typing import Any
+from scipy.sparse import csc_matrix
 from .utils.bmat import BlockOverlapMatrix
 from .transforms.transform_statevec import statevec2vecs
 from .utils.console_output import ProgressBar
@@ -26,7 +27,7 @@ def partial_stiff(
     ndims: int = 6,
     verbose: bool = False,
     print_info: bool = False,
-) -> tuple[np.ndarray, BlockOverlapMatrix]:
+) -> tuple[np.ndarray, BlockOverlapMatrix | csc_matrix]:
     """
     Assemble a global stiffness matrix and ground-state vector by stitching local stiffness blocks.
 
@@ -42,6 +43,11 @@ def partial_stiff(
     segment contributions. The returned stiffness is stored as overlapping dense
     blocks; overlap handling on extraction is governed by the BlockOverlapMatrix
     averaging semantics.
+
+    If `closed=True`, the ring is unrolled into an open chain that extends
+    `overlap_size + tail_size` steps beyond the ring on either side. This chain is
+    assembled as above, and the rows of the ring steps are folded back onto the ring
+    by adding up all periodic images of each coupling.
 
     Parameters
     ----------
@@ -61,8 +67,8 @@ def partial_stiff(
         adding tails). Segments are placed with stride `block_size - overlap_size`.
     overlap_size : int
         Number of base-pair steps shared between neighboring segments. Must satisfy
-        `0 <= overlap_size < block_size` and must not exceed the number of steps in
-        the global system.
+        `0 <= overlap_size < block_size`. For `closed=False`, overlap_size and
+        block_size are reduced to fit into the chain (at most nbps-1 and nbps).
     tail_size : int
         Number of additional base pairs included on each side of a segment when
         calling `stiffgen_method`. Tail regions are discarded from the returned
@@ -81,23 +87,17 @@ def partial_stiff(
     gs : numpy.ndarray
         Ground-state vector reshaped by `statevec2vecs(gs, ndims)` after averaging
         across segment contributions.
-    stiff : BlockOverlapMatrix
-        Global stiffness represented as overlapping dense blocks. The stiffness
-        matrix can be converted to a SciPy sparse matrix using `stiff.to_sparse()`.
+    stiff : BlockOverlapMatrix or scipy.sparse.csc_matrix
+        For `closed=False`, the global stiffness represented as overlapping dense
+        blocks; it can be converted to a SciPy sparse matrix using `stiff.to_sparse()`.
+        For `closed=True`, the ring stiffness as a SciPy sparse matrix.
 
     Raises
     ------
     ValueError
-        If `overlap_size > nbps` where `nbps` is the number of steps in the assembled
-        system, or if `block_size <= overlap_size`, or if `block_size + tail_size`
-        is smaller than `PARTIALS_MIN_BLOCK`.
+        If `block_size <= overlap_size`, or if `block_size + tail_size` is smaller
+        than `PARTIALS_MIN_BLOCK`.
     """
-    
-    nbps = len(seq)
-    if not closed:
-        nbps -= 1
-    if overlap_size > nbps:
-        raise ValueError(f"Overlap size should not exceed the number of bps!")
 
     if block_size <= overlap_size:
         raise ValueError(
@@ -108,6 +108,12 @@ def partial_stiff(
         raise ValueError(
             f"blocks too small. block_size+tail_size={block_size+tail_size}. Needs to be at least {PARTIALS_MIN_BLOCK}."
         )
+
+    if not closed:
+        # an open chain of nbps steps holds at most one block of nbps steps
+        nbps = len(seq) - 1
+        overlap_size = min(overlap_size, nbps - 1)
+        block_size = min(block_size, nbps)
         
     if closed:
         gs,stiff = _partial_stiff_closed(
@@ -222,72 +228,49 @@ def _partial_stiff_closed(
     tail_size: int,
     ndims: int = 6,
     verbose: bool = False,
-) -> tuple[np.ndarray, BlockOverlapMatrix]:
-    # the main sequence includes the step connecting the last and first bp
-    # the full sequence includes the overlap region on top of that
-
-    N_main = len(seq)
-    N_full = N_main + overlap_size
-    
-    if block_size > N_main - overlap_size:
-        block_size = N_main - 1
-        # int(np.ceil(N_main / 2))
-
-    block_incr = block_size - overlap_size
-    Nsegs = int(np.floor(N_full / block_incr))
-    lastseg_id = Nsegs - 1
-
-    stiff = BlockOverlapMatrix(
-        average=True,
-        periodic=True,
-        xlo=0,
-        xhi=N_main * ndims,
-        ylo=0,
-        yhi=N_main * ndims,
+) -> tuple[np.ndarray, csc_matrix]:
+    # Ring of N steps; step N-1 joins the last and the first bp. The ring is unrolled into an
+    # open chain over the ring steps [-R, N+R), R = overlap_size + tail_size, and assembled like
+    # any open chain, so the couplings of the ring steps [0, N) up to overlap_size steps lie at
+    # least tail_size steps away from the chain ends; then it is folded onto the ring.
+    N = len(seq)
+    R = overlap_size + tail_size
+    gs, stiff = _partial_stiff_linear(
+        periodic_extension(seq, R),
+        stiffgen_method,
+        stiffgen_args,
+        min(block_size, N + 2 * R),
+        overlap_size,
+        tail_size,
+        ndims=ndims,
+        verbose=verbose,
     )
-    gs = np.zeros(ndims * N_main)
-    cnts = np.zeros(ndims * N_main)
+    return gs[R:R + N], fold_periodic(stiff.to_sparse(xlo=R * ndims, xhi=(R + N) * ndims), R, ndims)
 
-    if verbose:
-        print(f"Generating {Nsegs} stiffness blocks for {N_full} base-pair steps (closed topology)")
-        progress = ProgressBar(Nsegs, prefix='Progress:', show_eta=True)
-    for i in range(Nsegs):
-        # block range
-        id1 = i * block_incr
-        id2 = id1 + block_size
 
-        if i == lastseg_id and id2 < N_full:
-            id2 = N_full
+def periodic_extension(seq: str, margin: int) -> str:
+    """Base pairs of the open chain over the ring steps [-margin, len(seq)+margin) of the ring seq."""
+    N = len(seq)
+    return ''.join(seq[k % N] for k in range(-margin, N + margin + 1))
 
-        if verbose:
-            progress.update(i + 1, suffix=f'Block {i+1}/{Nsegs} (bps {id1}-{id2})')
 
-        pgs, pstiff = _extract_bps_stiff(
-            seq,
-            id1,
-            id2,
-            tail_size,
-            stiffgen_method,
-            stiffgen_args,
-            ndims,
-            periodic=True,
-        )
+def fold_periodic(rows, margin: int, ndims: int = 6) -> csc_matrix:
+    """Fold the rows of the n ring sites of a chain matrix onto the ring (sites: steps or composites).
 
-        mid1 = id1 * ndims
-        mid2 = id2 * ndims
-
-        stiff.add_block(pstiff, mid1, mid2, y1=mid1, y2=mid2)
-
-        if id2 <= N_main:
-            gs[mid1:mid2] += pgs
-            cnts[mid1:mid2] += 1
-        else:
-            mid2 = N_main * ndims
-            gs[mid1:mid2] += pgs[: mid2 - mid1]
-            cnts[mid1:mid2] += 1
-    gs /= cnts
-    gs = statevec2vecs(gs,ndims)
-    return gs, stiff
+    rows holds the rows of the ring sites [0, n) of a matrix of the open chain over the ring sites
+    [-margin, n+margin) (see periodic_extension), i.e. rows.shape = (n*ndims, (n+2*margin)*ndims).
+    The couplings to all periodic images of a site within margin sites are added up (column
+    j -> j mod n). This is exact for a periodic chain, also when the couplings reach around a short
+    ring in both directions. Couplings across the seam are taken from both chain margins; the two
+    estimates are averaged, which keeps the matrix symmetric.
+    """
+    n = rows.shape[0] // ndims
+    rows = rows.tocoo()
+    i, j = rows.row // ndims + margin, rows.col // ndims
+    keep = np.abs(j - i) <= margin
+    cols = (j[keep] - margin) % n * ndims + rows.col[keep] % ndims
+    folded = csc_matrix((rows.data[keep], (rows.row[keep], cols)), shape=(n * ndims, n * ndims))
+    return (folded + folded.T) / 2
 
 
 #######################################################################################

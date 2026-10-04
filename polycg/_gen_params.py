@@ -9,7 +9,7 @@ import scipy as sp
 from .cg import coarse_grain
 from .cgnaplus import cgnaplus_bps_params
 from .models.RBPStiff.read_params import GenStiffness
-from .partials import partial_stiff
+from .partials import partial_stiff, periodic_extension, fold_periodic
 from .utils.bmat import BlockOverlapMatrix, crop_periodic_fold_fill_zeros
 from .transforms.transform_rescale import rescale_stiff_dofs
 
@@ -413,13 +413,6 @@ def _gen_params_open(
             method = cgnaplus_bps_params
             stiffgen_args = _build_cgnaplus_args(cgnap_setname)
             
-            nbps = len(sequence) - 1
-            
-            if overlap_size > nbps:
-                overlap_size = nbps - 1
-            if block_size > nbps:
-                block_size = nbps
-            
             _log_partial_stiff_params(block_size, overlap_size, tail_size, print_info=print_info, verbose=verbose)
             
             gs, bmat_stiff = partial_stiff(
@@ -603,14 +596,9 @@ def _gen_params_closed(
         
         # Handle no coarse-graining case
         if composite_size <= 1:
-            if overlap_size > nbps:
-                overlap_size = nbps - 1
-            if block_size > nbps:
-                block_size = nbps
-            
             _log_partial_stiff_params(block_size, overlap_size, tail_size, print_info=print_info, verbose=verbose)
             
-            gs, bmat_stiff = partial_stiff(
+            gs, stiff = partial_stiff(
                 sequence,
                 method,
                 stiffgen_args,
@@ -621,9 +609,6 @@ def _gen_params_closed(
                 ndims=_GEN_PARAMS_NDIMS,
                 verbose=verbose,
             )
-            if print_info and verbose:
-                print('Convert to sparse matrix')
-            stiff = bmat_stiff.to_sparse()
 
             # Optional per-DOF rescaling of the base stiffness before coarse-graining.
             if dof_rescale is not None:
@@ -640,60 +625,36 @@ def _gen_params_closed(
                 end_id=end_id
             )
         
-        # Coarse-graining case: extend sequence, generate, crop, and fold
-        overlap_size = int(np.ceil(overlap_size / composite_size)) * composite_size
-        if overlap_size > nbps:
-            overlap_size = nbps - composite_size
-        if block_size > nbps:
-            block_size = nbps
-        
-        # Extend sequence for periodic boundary conditions
-        n_right_overlap_extends = 2
-        extended_seq = (
-            sequence[-overlap_size:] +
-            sequence +
-            (''.join(sequence for i in range(n_right_overlap_extends)))[:n_right_overlap_extends * overlap_size + 1]
+        # Coarse-graining case: unroll the ring into an open chain that extends R steps beyond the
+        # ring on either side (R covers the overlap and the tails, in whole composites), generate
+        # and coarse-grain it like an open chain, and fold the rows of the ring back onto the ring,
+        # both for the steps and for the composites.
+        block_ncomp, overlap_ncomp, tail_ncomp = _calculate_coarse_grain_params(
+            block_size, overlap_size, tail_size, composite_size
         )
+        R = (overlap_ncomp + tail_ncomp) * composite_size
         
         _log_partial_stiff_params(block_size, overlap_size, tail_size, print_info=print_info, verbose=verbose)
         
         ext_gs, bmat_ext_stiff = partial_stiff(
-            extended_seq,
+            periodic_extension(sequence, R),
             method,
             stiffgen_args,
-            block_size=block_size,
+            block_size=min(block_size, nbps + 2 * R),
             overlap_size=overlap_size,
             tail_size=tail_size,
             closed=False,
             ndims=_GEN_PARAMS_NDIMS,
             verbose=verbose,
         )
-        
-        # Convert the extended stiffness to a single sparse matrix once, then apply the
-        # optional per-DOF rescaling *before* coarse-graining. The same rescaled matrix is
-        # reused both as the coarse-graining input and to build the returned base-level
-        # stiffness below, keeping the two consistent (and avoiding a second conversion).
-        ext_stiff = bmat_ext_stiff.to_sparse() if isinstance(bmat_ext_stiff, BlockOverlapMatrix) else bmat_ext_stiff
+        ext_stiff = bmat_ext_stiff.to_sparse()
         if dof_rescale is not None:
             ext_stiff = rescale_stiff_dofs(ext_stiff, dof_rescale, ndims=_GEN_PARAMS_NDIMS)
-
-        # Coarse-grain extended parameters
-        block_ncomp, overlap_ncomp, tail_ncomp = _calculate_coarse_grain_params(
-            block_size, overlap_size, tail_size, composite_size
-        )
         
-        if bmat_ext_stiff.shape[0] % composite_size != 0:
-            raise ValueError(
-                f'Incompatible matrix size: {bmat_ext_stiff.shape[0]} is not a multiple '
-                f'of composite_size={composite_size}'
-            )
-        
-        cg_gs_ext, bmat_cg_stiff_ext = coarse_grain(
+        cg_gs_ext, cg_stiff_ext = coarse_grain(
             ext_gs,
             ext_stiff,
             composite_size,
-            start_id=start_id,
-            end_id=end_id,
             allow_partial=True,
             block_ncomp=block_ncomp,
             overlap_ncomp=overlap_ncomp,
@@ -703,48 +664,21 @@ def _gen_params_closed(
             verbose=verbose,
             print_info=print_info,
         )
-        
-        # Crop coarse-grained parameters
-        cg_gs = cg_gs_ext[overlap_ncomp:-n_right_overlap_extends * overlap_ncomp]
+        Rc = R // composite_size
         cg_nbps = nbps // composite_size
-        
-        if isinstance(bmat_cg_stiff_ext, BlockOverlapMatrix):
-            if print_info and verbose:
-                print('Convert to sparse matrix')
-            cg_stiff_ext = bmat_cg_stiff_ext.to_sparse(
-                xlo=overlap_ncomp * _GEN_PARAMS_NDIMS,
-                xhi=(2 * overlap_ncomp + cg_nbps) * _GEN_PARAMS_NDIMS,
-                ylo=overlap_ncomp * _GEN_PARAMS_NDIMS,
-                yhi=(2 * overlap_ncomp + cg_nbps) * _GEN_PARAMS_NDIMS,
-            )
+        if isinstance(cg_stiff_ext, BlockOverlapMatrix):
+            cg_rows = cg_stiff_ext.to_sparse(xlo=Rc * _GEN_PARAMS_NDIMS, xhi=(Rc + cg_nbps) * _GEN_PARAMS_NDIMS)
         else:
-            cg_stiff_ext = bmat_cg_stiff_ext[
-                overlap_ncomp * _GEN_PARAMS_NDIMS:(2 * overlap_ncomp + cg_nbps) * _GEN_PARAMS_NDIMS,
-                overlap_ncomp * _GEN_PARAMS_NDIMS:(2 * overlap_ncomp + cg_nbps) * _GEN_PARAMS_NDIMS
-            ]
-        
-        cg_stiff = crop_periodic_fold_fill_zeros(
-            cg_stiff_ext,
-            cg_nbps * _GEN_PARAMS_NDIMS,
-            cg_nbps * _GEN_PARAMS_NDIMS
-        )
-        
-        # Create base-level stiffness by cropping the (already converted and rescaled)
-        # extended stiffness back to the fundamental domain.
-        base_stiff = ext_stiff[
-            overlap_size * _GEN_PARAMS_NDIMS:(overlap_size + nbps) * _GEN_PARAMS_NDIMS,
-            overlap_size * _GEN_PARAMS_NDIMS:(overlap_size + nbps) * _GEN_PARAMS_NDIMS
-        ]
-        
+            cg_rows = sp.sparse.csr_matrix(cg_stiff_ext)[Rc * _GEN_PARAMS_NDIMS:(Rc + cg_nbps) * _GEN_PARAMS_NDIMS]
         return DNAParameters(
             sequence=sequence,
             model=model,
-            shape_params=ext_gs[overlap_size:-n_right_overlap_extends * overlap_size],
-            stiffmat=base_stiff,
+            shape_params=ext_gs[R:R + nbps],
+            stiffmat=fold_periodic(ext_stiff.tocsr()[R * _GEN_PARAMS_NDIMS:(R + nbps) * _GEN_PARAMS_NDIMS], R, _GEN_PARAMS_NDIMS),
             closed=True,
             composite_size=composite_size,
-            cg_shape_params=cg_gs,
-            cg_stiffmat=cg_stiff,
+            cg_shape_params=cg_gs_ext[Rc:Rc + cg_nbps],
+            cg_stiffmat=fold_periodic(cg_rows, Rc, _GEN_PARAMS_NDIMS),
             start_id=start_id,
             end_id=end_id
         )
@@ -796,7 +730,7 @@ def gen_params(
     --------
     Linear topology (`closed=False`, default):
         Parameters are generated for a linear DNA chain with N base pairs and N-1 steps. 
-        The functions supports extracting subranges via `start_id` and `end_id` when coarse-graining.
+        A subrange can be selected via `start_id` and `end_id`, which are indices of base-pair steps.
         
     Circular topology (`closed=True`):
         Parameters are generated for a closed DNA ring with periodic boundary conditions. 
@@ -829,12 +763,20 @@ def gen_params(
         Topology flag. If True, generate parameters for a closed circular DNA molecule with 
         periodic boundary conditions. If False, generate parameters for a linear molecule.
     start_id : int, default=0
-        Starting composite index for selecting a subrange when coarse-graining linear molecules. 
-        Must be 0 for circular topology.
+        Index of the first base-pair step to include (counted in base-pair steps, not in 
+        composites). Coarse-graining starts at this step: composite k comprises the steps 
+        start_id + k*composite_size, ..., start_id + (k+1)*composite_size - 1, i.e. the first 
+        coarse-grained frame is base pair start_id. The returned base-level parameters and 
+        sequence are cropped to the selected range. Must be 0 for circular topology.
     end_id : int or None, default=None
-        Ending composite index (exclusive) for selecting a subrange when coarse-graining linear 
-        molecules. If None, coarse-grains through the entire sequence. Not supported for circular 
-        topology.
+        Index one past the last base-pair step to include (exclusive, counted in base-pair 
+        steps, at most len(sequence) - 1). If None, the range extends to the end of the 
+        sequence. Steps at the end of the range that do not fill a complete composite are
+        dropped if `allow_crop` is True, otherwise a ValueError is raised. These steps are
+        dropped from the coarse-grained output (`cg_shape_params`, `cg_stiffmat`) only; the
+        base-level `shape_params`, `stiffmat` and `sequence` still cover the full range
+        start_id, ..., end_id - 1 and may therefore extend beyond the last composite. Not
+        supported for circular topology.
     allow_partial : bool, default=True
         Enable block-overlap assembly strategy via `partial_stiff` for memory-efficient generation 
         of large sequences. Required for cgNA+ model with circular topology. For local models 
@@ -891,9 +833,9 @@ def gen_params(
         - `composite_size` : int
             Coarse-graining level used (1 for no coarse-graining).
         - `start_id` : int
-            Starting index of the range (0 if full sequence).
+            First base-pair step of the selected range (0 if full sequence).
         - `end_id` : int or None
-            Ending index of the range (None if full sequence).
+            End of the selected range in base-pair steps, exclusive (None if full sequence).
         
         **Coarse-grained attributes (present when composite_size > 1):**
         

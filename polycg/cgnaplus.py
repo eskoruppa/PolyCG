@@ -173,9 +173,6 @@ if __name__ == '__main__':
     if len(seq) == 0:
         raise IOError('Empty sequence found')
 
-    nbps = len(seq)-1
-    if args.closed:
-        nbps += 1
     print(f'Sequence contains {len(seq)} base pairs.')
 
     method = cgnaplus_bps_params
@@ -191,11 +188,6 @@ if __name__ == '__main__':
     overlap_size = args.overlap_size
     tail_size = args.tail_size
     
-    if overlap_size > nbps:
-        overlap_size = nbps-1
-    if block_size > nbps:
-        block_size = nbps
-    
     print('Generating partial stiffness matrix with')    
     print(f'block_size:   {block_size}')
     print(f'overlap_size: {overlap_size}')
@@ -204,13 +196,7 @@ if __name__ == '__main__':
     import time
     t1 = time.time()
 
-    if len(seq) - 1 <= overlap_size:
-        gs, stiffar = cgnaplus_bps_params(seq, **stiffgen_args)
-        stiff = sp.sparse.lil_matrix(stiffar.shape)
-        stiff[:,:] = stiffar
-        stiff = stiff.tocsc()
-    else:
-        gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=args.closed,ndims=6)
+    gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=args.closed,ndims=6)
 
     t2 = time.time()
     print(f'Finished stiffness matrix generation in {t2-t1:.4f} seconds ({(t2-t1)/60:.5f} minutes).')

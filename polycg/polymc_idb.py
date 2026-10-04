@@ -306,12 +306,6 @@ if __name__ == "__main__":
             block_size = 120
             overlap_size = 20
             tail_size = 20
-            nbps = len(seq)-1
-            
-            if overlap_size > nbps:
-                overlap_size = nbps-1
-            if block_size > nbps:
-                block_size = nbps
             
             print('Generating partial stiffness matrix with')    
             print(f'block_size:   {block_size}')
@@ -319,6 +313,8 @@ if __name__ == "__main__":
             print(f'tail_size:    {tail_size}')
 
             gs,stiff = partial_stiff(seq,method,stiffgen_args,block_size=block_size,overlap_size=overlap_size,tail_size=tail_size,closed=closed,ndims=3,verbose=True)
+            if isinstance(stiff, BlockOverlapMatrix):
+                stiff = stiff.to_sparse()
         
         ################################
         # RBPStiff
