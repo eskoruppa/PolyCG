@@ -230,6 +230,18 @@ def gen_gs_config(gs,disc_len):
     return taus
 
 
+def cg_partition(composite_size: int, couprange: int) -> tuple[int, int, int]:
+    """Block, overlap and tail sizes (in composites) for the block-wise coarse-graining.
+
+    The overlap holds all couplings written to the IDB (couprange), the tails give at least 40 bp of
+    context on either side of a block, and blocks span at least 160 bp and are longer than the overlap.
+    """
+    overlap_ncomp = max(couprange, 2)
+    tail_ncomp = max(int(np.ceil(40 / composite_size)), couprange)
+    block_ncomp = max(int(np.ceil(160 / composite_size)), 2 * couprange, overlap_ncomp + 1)
+    return block_ncomp, overlap_ncomp, tail_ncomp
+
+
 ##########################################################################################################
 ############### Closed chains ############################################################################
 ##########################################################################################################
@@ -426,28 +438,14 @@ if __name__ == "__main__":
         ################################
         # RBPStiff
         
-        if model.lower() in ['rbp','rbpstiff','lankas'] and not closed:
-            print('generating stiffness with RBPStiff')
-            genstiff = GenStiffness(method='md')
-            stiff, gs = genstiff.gen_params(seq,use_group=True,sparse=True)
-            gs    = statevec2vecs(vector_rotmarginal(vecs2statevec(gs)),vdim=3)
-            stiff = matrix_rotmarginal(stiff)
-            
-        if model.lower() in ['crystal','olson'] and not closed:
-            print('generating stiffness with RBPStiff')
-            genstiff = GenStiffness(method='crystal')
-            stiff, gs = genstiff.gen_params(seq,use_group=True,sparse=True)
-            gs    = statevec2vecs(vector_rotmarginal(vecs2statevec(gs)),vdim=3)
-            stiff = matrix_rotmarginal(stiff)
-            
-        if model.lower() in ['rbp','rbpstiff','lankas','crystal','olson'] and closed:
+        if model.lower() in ['rbp','rbpstiff','lankas','crystal','olson']:
             print('generating stiffness with RBPStiff')
             local_method = 'md' if model.lower() in ['rbp','rbpstiff','lankas'] else 'crystal'
             def chain_params(chain_seq):
                 return _local_chain(chain_seq, local_method)
             chain_margin = 0
-            # the closing step joins the last and the first base pair
-            gs, stiff = chain_params(seq + seq[0])
+            # for a closed chain the closing step joins the last and the first base pair
+            gs, stiff = chain_params(seq + seq[0] if closed else seq)
 
         ##########################################################
         ##########################################################
@@ -467,9 +465,7 @@ if __name__ == "__main__":
             if closed:
                 outfn += '_closed'
             
-            block_ncomp   = np.max([int(np.ceil(160/composite_size)),2*couprange])
-            overlap_ncomp = int(np.max([couprange,2]))
-            tail_ncomp    = np.max([int(np.ceil(40/composite_size)),couprange])
+            block_ncomp, overlap_ncomp, tail_ncomp = cg_partition(composite_size, couprange)
           
             ##########################################################
             ##########################################################
@@ -553,8 +549,13 @@ if __name__ == "__main__":
                         margin=chain_margin, scale_factor=scale_factor
                     )
                 else:
-                    cg_gs,cg_stiff = coarse_grain(gs,stiff,composite_size,start_id=first_id,allow_partial=True,verbose=True)
-                    cg_stiff = cg_stiff.to_sparse()
+                    cg_gs,cg_stiff = coarse_grain(
+                        gs,stiff,composite_size,start_id=first_id,allow_partial=True,block_ncomp=block_ncomp,
+                        overlap_ncomp=overlap_ncomp,tail_ncomp=tail_ncomp,verbose=True
+                    )
+                    # short chains are coarse-grained in one piece and come back as a sparse matrix
+                    if isinstance(cg_stiff, BlockOverlapMatrix):
+                        cg_stiff = cg_stiff.to_sparse()
 
                 ##########################################################
                 ##########################################################
